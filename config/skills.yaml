@@ -1,0 +1,63 @@
+# Taxonomia de competências.
+# padroes: regex aplicadas ao texto normalizado (minúsculas, sem acentos).
+# esforco: estimativa de aprendizagem (baixo | medio | alto) — opinião configurável, não dado observado.
+# projeto: se dá para demonstrar num projeto prático de portfólio.
+
+competencias:
+  # Linguagens
+  - {id: python, nome: Python, categoria: linguagem, padroes: ["\\bpython\\b", "pandas", "pyspark"], esforco: medio, projeto: true}
+  - {id: sql, nome: SQL, categoria: linguagem, padroes: ["\\bsql\\b", "t-sql", "pl/?sql", "consultas sql"], esforco: baixo, projeto: true}
+  - {id: scala, nome: Scala, categoria: linguagem, padroes: ["\\bscala\\b"], esforco: alto, projeto: true}
+  - {id: java, nome: Java, categoria: linguagem, padroes: ["\\bjava\\b(?!script)"], esforco: alto, projeto: true}
+  # Processamento
+  - {id: spark, nome: Apache Spark, categoria: processamento, padroes: ["\\bspark\\b", "pyspark", "spark sql"], esforco: medio, projeto: true}
+  - {id: databricks, nome: Databricks, categoria: plataforma, padroes: ["databricks", "delta lake", "unity catalog"], esforco: medio, projeto: true}
+  - {id: kafka, nome: Kafka / Streaming, categoria: processamento, padroes: ["kafka", "streaming", "kinesis", "event hubs?"], esforco: alto, projeto: true}
+  - {id: etl, nome: ETL / ELT, categoria: processamento, padroes: ["\\betl\\b", "\\belt\\b", "pipelines? de dados", "data pipelines?", "ingestao de dados"], esforco: medio, projeto: true}
+  # Orquestração e transformação
+  - {id: airflow, nome: Apache Airflow, categoria: orquestracao, padroes: ["airflow", "\\bmwaa\\b", "cloud composer"], esforco: medio, projeto: true}
+  - {id: dbt, nome: dbt, categoria: transformacao, padroes: ["\\bdbt\\b"], esforco: baixo, projeto: true}
+  - {id: data_factory, nome: Azure Data Factory, categoria: orquestracao, padroes: ["data factory", "\\badf\\b", "synapse pipelines?"], esforco: medio, projeto: true}
+  # Cloud
+  - {id: azure, nome: Azure, categoria: cloud, padroes: ["\\bazure\\b", "synapse", "microsoft fabric", "adls"], esforco: medio, projeto: true}
+  - {id: aws, nome: AWS, categoria: cloud, padroes: ["\\baws\\b", "amazon web services", "\\bs3\\b", "\\bglue\\b", "redshift", "athena", "\\bemr\\b"], esforco: medio, projeto: true}
+  - {id: gcp, nome: Google Cloud, categoria: cloud, padroes: ["\\bgcp\\b", "google cloud", "bigquery", "dataflow", "dataproc"], esforco: medio, projeto: true}
+  # Armazenamento e modelagem
+  - {id: data_warehouse, nome: Data Warehouse, categoria: modelagem, padroes: ["data ?warehouse", "\\bdw\\b", "snowflake", "redshift", "bigquery"], esforco: medio, projeto: true}
+  - {id: data_lake, nome: Data Lake / Lakehouse, categoria: modelagem, padroes: ["data ?lake", "lakehouse", "medallion", "bronze.{0,20}silver"], esforco: medio, projeto: true}
+  - {id: modelagem, nome: Modelagem de dados, categoria: modelagem, padroes: ["modelagem (de )?dados", "modelagem dimensional", "data model", "star schema", "kimball"], esforco: medio, projeto: true}
+  - {id: snowflake, nome: Snowflake, categoria: plataforma, padroes: ["snowflake"], esforco: medio, projeto: true}
+  - {id: nosql, nome: NoSQL, categoria: armazenamento, padroes: ["nosql", "mongodb", "cassandra", "dynamodb", "cosmos ?db"], esforco: medio, projeto: true}
+  - {id: oracle, nome: Oracle, categoria: armazenamento, padroes: ["\\boracle\\b"], esforco: medio, projeto: false}
+  - {id: postgres, nome: PostgreSQL, categoria: armazenamento, padroes: ["postgres"], esforco: baixo, projeto: true}
+  # Qualidade e governança
+  - {id: qualidade_dados, nome: Qualidade de dados, categoria: governanca, padroes: ["qualidade de dados", "data quality", "great expectations", "\\bsoda\\b", "observabilidade de dados"], esforco: medio, projeto: true}
+  - {id: governanca, nome: Governança de dados, categoria: governanca, padroes: ["governanca de dados", "data governance", "catalogo de dados", "data catalog", "linhagem", "lineage", "metadados"], esforco: medio, projeto: true}
+  - {id: lgpd, nome: LGPD / Privacidade, categoria: governanca, padroes: ["\\blgpd\\b", "gdpr", "privacidade de dados", "protecao de dados"], esforco: baixo, projeto: false}
+  # Engenharia de software para dados
+  - {id: git, nome: Git, categoria: devops, padroes: ["\\bgit\\b", "github", "gitlab", "bitbucket"], esforco: baixo, projeto: true}
+  - {id: docker, nome: Docker, categoria: devops, padroes: ["docker", "container"], esforco: baixo, projeto: true}
+  - {id: cicd, nome: CI/CD, categoria: devops, padroes: ["ci/?cd", "github actions", "azure devops", "jenkins"], esforco: medio, projeto: true}
+  - {id: terraform, nome: Terraform / IaC, categoria: devops, padroes: ["terraform", "infra(estrutura)? como codigo", "\\biac\\b"], esforco: medio, projeto: true}
+  - {id: apis, nome: APIs REST, categoria: integracao, padroes: ["\\bapis?\\b", "\\brest\\b"], esforco: baixo, projeto: true}
+  # Visualização
+  - {id: power_bi, nome: Power BI, categoria: visualizacao, padroes: ["power ?bi"], esforco: baixo, projeto: true}
+  - {id: looker_tableau, nome: Looker / Tableau, categoria: visualizacao, padroes: ["looker", "tableau", "metabase"], esforco: baixo, projeto: true}
+
+# Trechos que indicam que o resto da seção é "desejável", não requisito.
+marcadores_desejavel:
+  - "diferencia(l|is)"
+  - "desejave(l|is)"
+  - "nice to have"
+  - "sera um plus"
+  - "e um plus"
+  - "bonus"
+  - "seria otimo"
+# Trechos que voltam a indicar requisito (fecham uma seção "desejável").
+marcadores_requisito:
+  - "requisitos"
+  - "obrigatori"
+  - "o que (voce precisa|esperamos)"
+  - "qualificac"
+  - "requirements"
+  - "must have"

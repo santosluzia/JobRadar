@@ -1,0 +1,48 @@
+# Pesos do score de aderência (0–100) e das recomendações de estudo.
+# O score é uma medida de compatibilidade com o perfil — NÃO é probabilidade de contratação.
+# Explicação de cada componente em docs/architecture.md, seção "Score de aderência".
+
+aderencia:
+  pesos:                       # somam 100
+    familia: 20                # responsabilidade/cargo compatível com o objetivo
+    competencias: 45           # requisitos e desejáveis cobertos por evidência
+    senioridade: 20
+    modalidade_local: 15
+  familia:                     # fração do peso por família de cargo
+    engenharia_dados: 1.0
+    analytics_engineering: 0.9
+    desenvolvimento_dados: 0.85
+    governanca_qualidade: 0.75
+    analise_dados: 0.6
+    outra: 0.0
+  evidencia:                   # quanto cada nível de evidência cobre um requisito
+    profissional: 1.0
+    projeto: 0.75
+    em_desenvolvimento: 0.4
+    nao_dominada: 0.0
+    sem_evidencia: 0.0         # sem registro no perfil ≠ não saber; aparece separado nas lacunas
+  peso_desejavel: 0.4          # desejável vale 40% de um requisito
+  senioridade:                 # fração do peso por senioridade da vaga
+    junior: 1.0
+    pleno: 0.9
+    nao_informada: 0.6
+    estagio: 0.0
+    senior: 0.2
+    lideranca: 0.0
+  penalidades:
+    palavra_excludente: 30
+    familia_outra: 20
+
+recomendacoes:
+  janela_dias: 90              # período recente
+  janela_comparacao_dias: 90   # período anterior equivalente
+  min_vagas_janela: 30         # abaixo disso a tendência não é considerada
+  min_variacao_pp: 5           # variação mínima (pontos percentuais) para chamar de tendência
+  limiar_lacuna_prioritaria: 0.15   # competência pedida em ≥15% das vagas-alvo
+  pesos:
+    demanda: 0.45
+    requisito: 0.20
+    tendencia: 0.15
+    projeto: 0.10
+    esforco: 0.10
+  esforco_fator: {baixo: 1.0, medio: 0.6, alto: 0.3}

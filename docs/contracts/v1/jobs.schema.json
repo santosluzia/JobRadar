@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/santosluzia/jobradar/public-data/v1/jobs.schema.json",
+  "title": "JobRadar jobs (1.0.0)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "dataset": {
+      "const": "jobs"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "end": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "status_last_run": {
+                "enum": [
+                  "ok",
+                  "erro"
+                ]
+              },
+              "last_success_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "records_last_run": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "jobs_in_history": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "source",
+              "status_last_run",
+              "last_success_at",
+              "records_last_run",
+              "jobs_in_history"
+            ]
+          }
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sources",
+        "observations",
+        "note"
+      ]
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "window_days": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total_relevant": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sort": {
+              "const": "published_at_desc"
+            },
+            "criteria": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "window_days",
+            "limit",
+            "total_relevant",
+            "sort",
+            "criteria"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 300
+              },
+              "company": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "city": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "state": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[A-Z]{2}$"
+              },
+              "modality": {
+                "enum": [
+                  "remoto",
+                  "hibrido",
+                  "presencial",
+                  "nao_informada"
+                ]
+              },
+              "seniority": {
+                "enum": [
+                  "estagio",
+                  "junior",
+                  "pleno",
+                  "senior",
+                  "lideranca",
+                  "nao_informada"
+                ]
+              },
+              "family": {
+                "enum": [
+                  "engenharia_dados",
+                  "analytics_engineering",
+                  "desenvolvimento_dados",
+                  "analise_dados",
+                  "governanca_qualidade",
+                  "outra"
+                ]
+              },
+              "source": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "pattern": "^https://"
+              },
+              "published_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "first_seen_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "last_seen_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "status": {
+                "enum": [
+                  "ativa",
+                  "desconhecida",
+                  "encerrada"
+                ]
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true
+              },
+              "required_skills": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "company",
+              "city",
+              "state",
+              "modality",
+              "seniority",
+              "family",
+              "source",
+              "url",
+              "published_at",
+              "first_seen_at",
+              "last_seen_at",
+              "status",
+              "skills",
+              "required_skills"
+            ]
+          }
+        }
+      },
+      "required": [
+        "selection",
+        "items"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "dataset",
+    "generated_at",
+    "run_id",
+    "data_window",
+    "coverage",
+    "data"
+  ]
+}

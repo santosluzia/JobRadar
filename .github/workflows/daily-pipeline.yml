@@ -1,0 +1,97 @@
+name: Pipeline diário
+
+# Cron do GitHub Actions é sempre UTC. 09:47 UTC = 06:47 em São Paulo (UTC-3; sem horário
+# de verão desde 2019). Minuto "quebrado" de propósito: execuções na hora cheia sofrem mais
+# atraso na fila do GitHub, que pode chegar a dezenas de minutos em horários de pico.
+on:
+  schedule:
+    - cron: "47 9 * * *"
+  workflow_dispatch:
+    inputs:
+      notificar:
+        description: "Enviar e-mail ao final"
+        type: boolean
+        default: true
+
+# Permissão mínima: o GITHUB_TOKEN só escreve NESTE repositório (branch public-data).
+# O histórico privado é acessado por uma deploy key restrita ao repositório jobradar-data.
+permissions:
+  contents: write
+
+concurrency:
+  group: jobradar-pipeline
+  cancel-in-progress: false
+
+env:
+  JOBRADAR_LAKE: ${{ github.workspace }}/lake
+  RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+  DATA_REPO: ${{ vars.JOBRADAR_DATA_REPO || format('{0}-data', github.repository) }}
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -e ".[app,dev]"
+
+      - name: Testes
+        run: pytest -q
+
+      - name: Baixar histórico (repositório privado)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DATA_REPO }}
+          ssh-key: ${{ secrets.JOBRADAR_DATA_DEPLOY_KEY }}
+          path: lake
+          fetch-depth: 1
+
+      - name: Coletar e transformar
+        id: run
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+        run: jobradar run --run-id "$RUN_ID" --report run-report.json
+
+      # Roda mesmo se todas as fontes falharam (status=falha), para registrar a execução;
+      # não roda se o processo quebrou no meio (aí não há status e o lake não é confiável).
+      - name: Persistir histórico
+        if: always() && steps.run.outputs.status != ''
+        run: bash scripts/persist_lake.sh "execução ${RUN_ID} (${{ steps.run.outputs.status }})"
+
+      - name: Gerar e validar contrato público
+        run: jobradar publish --out public_out --run-id "$RUN_ID"
+
+      - name: Publicar dados públicos (branch public-data)
+        run: bash scripts/publish_public_data.sh public_out public-data
+
+      - name: Enviar e-mail
+        if: github.event_name == 'schedule' || inputs.notificar
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: jobradar notify --run-id "$RUN_ID"
+
+      - name: Persistir registro de notificações
+        if: github.event_name == 'schedule' || inputs.notificar
+        run: bash scripts/persist_lake.sh "notificações ${RUN_ID}"
+
+      - name: Métricas da execução
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execucao-${{ env.RUN_ID }}
+          path: run-report.json
+          retention-days: 14
+          if-no-files-found: ignore

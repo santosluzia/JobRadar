@@ -1,0 +1,30 @@
+# Perfil profissional — MODELO.
+# O perfil real é privado: fica em <lake>/private/profile.yaml (repositório jobradar-data)
+# ou em config/profile.yaml local (ignorado pelo git). Nunca é publicado.
+#
+# Níveis de evidência:
+#   profissional        usado em trabalho remunerado
+#   projeto             usado em projeto pessoal, acadêmico ou de portfólio
+#   em_desenvolvimento  estudando / em curso
+#   nao_dominada        sabe que não domina
+# Competência ausente da lista = "sem_evidencia" (o sistema não presume que você não sabe).
+
+objetivo:
+  familias: [engenharia_dados, analytics_engineering]
+  senioridades: [junior, pleno]
+  modalidades: [remoto, hibrido]
+  locais: {ufs: [SP], cidades: [sao paulo]}
+
+competencias:
+  - skill: sql
+    nivel: profissional
+    evidencias: ["Descreva onde usou — ex.: consultas e procedures no sistema X"]
+  - skill: python
+    nivel: projeto
+    evidencias: ["Projeto Y no GitHub"]
+  - skill: spark
+    nivel: em_desenvolvimento
+    evidencias: ["Curso Z, iniciado em 2026-01"]
+    inicio: 2026-01-10
+  - skill: kafka
+    nivel: nao_dominada

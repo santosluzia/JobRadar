@@ -1,0 +1,17 @@
+# Segredos e perfil pessoal
+.env
+config/profile.yaml
+
+# Histórico (vive no repositório privado jobradar-data, nunca aqui)
+lake/
+data/
+public_out/
+*.parquet
+*.json.gz
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.streamlit/secrets.toml

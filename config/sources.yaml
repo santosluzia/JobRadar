@@ -1,0 +1,66 @@
+# Fontes de coleta e filtros de relevância.
+# Cada fonte pode ser ligada/desligada sem mexer no código.
+# Situação de cada fonte está documentada em docs/architecture.md (seção "Fontes").
+
+busca:
+  termos:
+    - engenheiro de dados
+    - engenheira de dados
+    - engenharia de dados
+    - data engineer
+    - analytics engineer
+    - desenvolvedor de dados
+    - analista de dados
+    - governanca de dados
+    - qualidade de dados
+  max_dias_publicacao: 30      # vagas publicadas antes disso não entram como "novas"
+
+fontes:
+  gupy:
+    ativo: true
+    # Endpoint usado pelo portal público (portal.gupy.io), sem login.
+    # NÃO é uma API documentada: pode mudar. Por isso há URL alternativa.
+    urls:
+      - https://portal.api.gupy.io/api/v1/jobs
+      - https://employability-portal.gupy.io/api/v1/jobs
+    limite_por_termo: 100
+    pausa_segundos: 1.0
+  adzuna:
+    ativo: true                # só roda com ADZUNA_APP_ID e ADZUNA_APP_KEY
+    pais: br                   # cobertura brasileira: validar na 1ª execução real
+    resultados_por_pagina: 50
+    max_dias: 30
+    pausa_segundos: 1.0
+  greenhouse:
+    ativo: false               # API pública documentada, por empresa
+    empresas: []               # board tokens, ex.: ["nubank"] — confirme em boards.greenhouse.io/<token>
+    pausa_segundos: 0.5
+  lever:
+    ativo: false               # API pública documentada, por empresa
+    empresas: []               # ex.: ["empresa"] — confirme em jobs.lever.co/<empresa>
+    pausa_segundos: 0.5
+
+# Filtros usados para decidir o que é "vaga relevante" (e-mail e jobs.json).
+# Vagas fora do filtro continuam no histórico e entram nas análises de mercado.
+filtros:
+  familias: [engenharia_dados, analytics_engineering, desenvolvimento_dados, analise_dados, governanca_qualidade]
+  senioridades: [junior, pleno, nao_informada]
+  modalidades: [remoto, hibrido, presencial, nao_informada]
+  locais:                      # vale para híbrido/presencial; remoto passa sempre
+    ufs: [SP]
+    cidades: [sao paulo, osasco, barueri, santana de parnaiba, carapicuiba, cotia]
+  tecnologias_interesse: [python, sql, spark, databricks, azure, airflow, dbt]
+  exigir_tecnologia_interesse: false   # true = só vagas que citem ao menos uma delas
+  palavras_obrigatorias: []    # se preenchido, a vaga precisa conter ao menos uma
+  palavras_excludentes: [estagio, estagiario, estagiaria, aprendiz]
+  score_minimo: 45             # aderência mínima (0–100) para ir ao e-mail
+
+notificacoes:
+  limite: 20                   # máximo de vagas por e-mail
+  janela_dias: 7               # só notifica vagas vistas pela 1ª vez nos últimos N dias
+  enviar_quando_vazio: false   # true = manda e-mail mesmo sem vagas novas
+
+retencao:
+  bronze_dias: 90              # respostas brutas
+  descricao_dias_apos_ultima_observacao: 180
+  status_desconhecido_apos_dias: 14
