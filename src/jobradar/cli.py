@@ -159,6 +159,10 @@ def main(argv: list[str] | None = None) -> None:
     ct = sub.add_parser("contract"); ct.add_argument("acao", choices=["export"]); ct.set_defaults(f=cmd_contract)
 
     a = p.parse_args(argv)
+    # No Windows, saída redirecionada (arquivo, pipe, agendador) usa cp1252 e quebra nos ✅/❌ do relatório.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     s = carregar(lake=a.lake)
