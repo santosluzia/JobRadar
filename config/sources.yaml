@@ -19,10 +19,11 @@ fontes:
   gupy:
     ativo: true
     # Endpoint usado pelo portal público (portal.gupy.io), sem login.
-    # NÃO é uma API documentada: pode mudar. Por isso há URL alternativa.
+    # NÃO é uma API documentada: pode mudar. A lista aceita URLs alternativas, testadas em ordem.
+    # Em 2026-10 os antigos portal.api.gupy.io/api/v1/jobs e employability-portal.gupy.io/api/v1/jobs
+    # passaram a responder 404; o portal migrou para a rota abaixo (mesmo formato data/pagination).
     urls:
-      - https://portal.api.gupy.io/api/v1/jobs
-      - https://employability-portal.gupy.io/api/v1/jobs
+      - https://portal.gupy.io/api/job-search/jobs
     limite_por_termo: 100
     pausa_segundos: 1.0
   adzuna:

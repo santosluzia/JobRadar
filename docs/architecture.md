@@ -108,7 +108,7 @@ Cada score é gravado com a lista de critérios, pontos e motivo. As lacunas sã
 
 | Fonte | Acesso | Situação |
 |---|---|---|
-| Gupy | JSON consumido por `portal.gupy.io`, sem autenticação | Não é API documentada. Tem URL alternativa configurada (`employability-portal.gupy.io`). Uso com pausa entre requisições |
+| Gupy | JSON consumido por `portal.gupy.io`, sem autenticação | Não é API documentada. Rota atual: `portal.gupy.io/api/job-search/jobs` (desde 2026-10; as antigas `portal.api.gupy.io/api/v1/jobs` e `employability-portal.gupy.io/api/v1/jobs` respondem 404). `urls` aceita alternativas. Uso com pausa entre requisições |
 | Adzuna | API oficial com `app_id`/`app_key` | A cobertura BR (`/jobs/br/`) precisa ser confirmada na primeira execução com chave real |
 | Greenhouse | `boards-api.greenhouse.io/v1/boards/{token}/jobs` | API pública de job board. Exige a lista de empresas (tokens) |
 | Lever | `api.lever.co/v0/postings/{empresa}` | API pública de postings. Exige a lista de empresas |
