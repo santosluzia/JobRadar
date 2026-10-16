@@ -17,8 +17,9 @@ st.set_page_config(page_title="JobRadar", page_icon="📡", layout="wide")
 paginas = [
     st.Page("pages/1_visao_geral.py", title="Visão geral", icon="📊", default=True),
     st.Page("pages/2_mercado.py", title="Mercado", icon="📈"),
-    st.Page("pages/3_aderencia_estudos.py", title="Minha aderência e estudos", icon="🎯"),
-    st.Page("pages/4_vagas.py", title="Vagas e candidaturas", icon="🗂️"),
+    # Fora do menu por enquanto (dependem do perfil e das candidaturas). Para reativar, descomente:
+    # st.Page("pages/3_aderencia_estudos.py", title="Minha aderência e estudos", icon="🎯"),
+    # st.Page("pages/4_vagas.py", title="Vagas e candidaturas", icon="🗂️"),
 ]
 st.navigation(paginas).run()
 st.sidebar.caption("Painel privado · dados pessoais nunca saem desta máquina.")
