@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/santosluzia/jobradar/public-data/v1/manifest.schema.json",
+  "title": "JobRadar manifest (1.0.0)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "pipeline_version": {
+      "type": "string"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dataset": {
+            "enum": [
+              "market-summary",
+              "skill-trends",
+              "jobs"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "dataset",
+          "path",
+          "sha256",
+          "records",
+          "bytes"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "generated_at",
+    "run_id",
+    "pipeline_version",
+    "files"
+  ]
+}

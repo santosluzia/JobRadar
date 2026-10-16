@@ -1,0 +1,390 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/santosluzia/jobradar/public-data/v1/market-summary.schema.json",
+  "title": "JobRadar market-summary (1.0.0)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "dataset": {
+      "const": "market-summary"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "end": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "status_last_run": {
+                "enum": [
+                  "ok",
+                  "erro"
+                ]
+              },
+              "last_success_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "records_last_run": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "jobs_in_history": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "source",
+              "status_last_run",
+              "last_success_at",
+              "records_last_run",
+              "jobs_in_history"
+            ]
+          }
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sources",
+        "observations",
+        "note"
+      ]
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "observed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "active": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "status_unknown": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "closed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "new_7d": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "new_30d": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cross_source_duplicates": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "observed",
+            "active",
+            "status_unknown",
+            "closed",
+            "new_7d",
+            "new_30d",
+            "cross_source_duplicates"
+          ]
+        },
+        "by_modality": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "jobs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pct": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "value",
+              "jobs",
+              "pct"
+            ]
+          }
+        },
+        "by_seniority": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "jobs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pct": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "value",
+              "jobs",
+              "pct"
+            ]
+          }
+        },
+        "by_family": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "jobs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pct": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "value",
+              "jobs",
+              "pct"
+            ]
+          }
+        },
+        "by_source": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "jobs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pct": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "value",
+              "jobs",
+              "pct"
+            ]
+          }
+        },
+        "by_state": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "jobs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pct": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "value",
+              "jobs",
+              "pct"
+            ]
+          }
+        },
+        "quality": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed_runs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "records_collected": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "records_invalid": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "invalid_rate_pct": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100
+            },
+            "missing_published_at_pct": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100
+            },
+            "missing_company_pct": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "runs",
+            "failed_runs",
+            "records_collected",
+            "records_invalid",
+            "invalid_rate_pct",
+            "missing_published_at_pct",
+            "missing_company_pct"
+          ]
+        },
+        "last_successful_run": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "run_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "sucesso",
+                    "parcial"
+                  ]
+                },
+                "finished_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "run_id",
+                "status",
+                "finished_at"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "totals",
+        "by_modality",
+        "by_seniority",
+        "by_family",
+        "by_source",
+        "by_state",
+        "quality",
+        "last_successful_run"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "dataset",
+    "generated_at",
+    "run_id",
+    "data_window",
+    "coverage",
+    "data"
+  ]
+}
