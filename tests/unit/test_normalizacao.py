@@ -23,6 +23,8 @@ def test_senioridade_por_titulo_e_por_descricao():
     assert n.senioridade("Tech Lead de Dados", None)[0] == Senioridade.lideranca
     assert n.senioridade("Analista de Dados", "Nível: Júnior") == (Senioridade.junior, "descricao")
     assert n.senioridade("Analista de Dados", None) == (Senioridade.nao_informada, "nao_informada")
+    assert n.senioridade("[Job-32215] Engenheiro de Dados Master, Brazil", None)[0] == Senioridade.senior
+    assert n.senioridade("Analista de Master Data Management", None)[0] == Senioridade.nao_informada
 
 
 def test_modalidade_registra_origem():

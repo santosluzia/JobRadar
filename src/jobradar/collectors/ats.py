@@ -2,16 +2,36 @@
 
 Greenhouse: GET https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true
 Lever:      GET https://api.lever.co/v0/postings/{empresa}?mode=json
-Ambas devolvem TODAS as vagas da empresa; o filtro de relevância acontece na silver.
+Ambas devolvem TODAS as vagas da empresa (vendas, jurídico, etc.). Se `titulo_contem` estiver
+configurado, só ficam as vagas cujo título contém uma dessas palavras (sem acento, palavra inteira);
+o resto é descartado antes da bronze para não inflar o histórico nem diluir as análises de mercado.
+O filtro fino de relevância continua na silver.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 from ..models import RawJob
-from ..transformations.text import html_para_texto
+from ..transformations.text import html_para_texto, normalizar
 from .base import Collector, CollectResult, SourceError
+
+
+def _filtro_titulo(cfg: dict[str, Any]):
+    palavras = [normalizar(p) for p in cfg.get("titulo_contem") or [] if p]
+    if not palavras:
+        return lambda titulo: True
+    padrao = re.compile(r"\b(" + "|".join(re.escape(p) for p in palavras) + r")\b")
+    return lambda titulo: bool(padrao.search(normalizar(titulo)))
+
+
+def _aplicar_filtro(cfg: dict[str, Any], todos: list[dict[str, Any]], campo: str,
+                    result: CollectResult) -> list[dict[str, Any]]:
+    aceita = _filtro_titulo(cfg)
+    mantidos = [r for r in todos if aceita(r.get(campo))]
+    result.params["fora_do_filtro_titulo"] = len(todos) - len(mantidos)
+    return mantidos
 
 
 class GreenhouseCollector(Collector):
@@ -31,7 +51,7 @@ class GreenhouseCollector(Collector):
             except (SourceError, ValueError) as e:
                 result.errors.append(f"{token}: {e}")
             self._sleep()
-        result.records = self.dedupe(todos, "id", result)
+        result.records = self.dedupe(_aplicar_filtro(self.cfg, todos, "title", result), "id", result)
         return result
 
     def to_raw_job(self, r: dict[str, Any]) -> RawJob:
@@ -67,7 +87,7 @@ class LeverCollector(Collector):
             except (SourceError, ValueError) as e:
                 result.errors.append(f"{empresa}: {e}")
             self._sleep()
-        result.records = self.dedupe(todos, "id", result)
+        result.records = self.dedupe(_aplicar_filtro(self.cfg, todos, "text", result), "id", result)
         return result
 
     def to_raw_job(self, r: dict[str, Any]) -> RawJob:

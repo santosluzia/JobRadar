@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from jobradar.collectors import AdzunaCollector, GupyCollector
+from jobradar.collectors import AdzunaCollector, GreenhouseCollector, GupyCollector, LeverCollector
 from jobradar.collectors.base import CollectResult, SourceError
 
 
@@ -61,3 +61,23 @@ def test_adzuna_mapeia_local_e_remoto():
                         "location": {"display_name": "Barueri", "area": ["Brasil", "São Paulo", "Barueri"]},
                         "description": "Home office", "created": "2026-10-01T00:00:00Z"})
     assert raw.state == "São Paulo" and raw.city == "Barueri" and raw.modality_raw == "remoto"
+
+
+def test_greenhouse_e_lever_filtram_por_titulo_antes_da_bronze():
+    gh = {"jobs": [{"id": 1, "title": "Engenheira de Dados Sr"}, {"id": 2, "title": "Executivo de Vendas"},
+                   {"id": 3, "title": "Analista de BI"}, {"id": 4, "title": "Bilingual Support"}]}
+    lv = [{"id": "a", "text": "Data Developer"}, {"id": "b", "text": "Advogado(a)"}]
+
+    def h(req):
+        return httpx.Response(200, json=gh if "greenhouse" in req.url.host else lv)
+    cliente = httpx.Client(transport=httpx.MockTransport(h))
+    filtro = ["dados", "data", "bi"]
+    g = GreenhouseCollector({"empresas": ["x"], "titulo_contem": filtro}, client=cliente)
+    v = LeverCollector({"empresas": ["y"], "titulo_contem": filtro}, client=cliente)
+    g.pause = v.pause = 0
+    rg, rv = g.collect([]), v.collect([])
+    assert [r["id"] for r in rg.records] == [1, 3] and rg.params["fora_do_filtro_titulo"] == 2
+    assert [r["id"] for r in rv.records] == ["a"]
+    sem_filtro = GreenhouseCollector({"empresas": ["x"]}, client=cliente)
+    sem_filtro.pause = 0
+    assert len(sem_filtro.collect([]).records) == 4

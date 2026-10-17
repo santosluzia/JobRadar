@@ -110,8 +110,8 @@ Cada score é gravado com a lista de critérios, pontos e motivo. As lacunas sã
 |---|---|---|
 | Gupy | JSON consumido por `portal.gupy.io`, sem autenticação | Não é API documentada. Rota atual: `portal.gupy.io/api/job-search/jobs` (desde 2026-10; as antigas `portal.api.gupy.io/api/v1/jobs` e `employability-portal.gupy.io/api/v1/jobs` respondem 404). `urls` aceita alternativas. Uso com pausa entre requisições |
 | Adzuna | API oficial com `app_id`/`app_key` | A cobertura BR (`/jobs/br/`) precisa ser confirmada na primeira execução com chave real |
-| Greenhouse | `boards-api.greenhouse.io/v1/boards/{token}/jobs` | API pública de job board. Exige a lista de empresas (tokens) |
-| Lever | `api.lever.co/v0/postings/{empresa}` | API pública de postings. Exige a lista de empresas |
+| Greenhouse | `boards-api.greenhouse.io/v1/boards/{token}/jobs` | API pública de job board. Ativa com 12 empresas brasileiras (lista em `config/sources.yaml`). Traz todas as vagas da empresa; `titulo_contem` descarta as que não são de dados antes da bronze |
+| Lever | `api.lever.co/v0/postings/{empresa}` | API pública de postings. Ativa com a CI&T, com o mesmo filtro por título |
 | LinkedIn / Indeed | — | Não usados: os termos proíbem automação |
 
 ## Retenção

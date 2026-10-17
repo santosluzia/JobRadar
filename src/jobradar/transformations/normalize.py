@@ -13,7 +13,8 @@ from .text import normalizar
 SENIORIDADE = [
     (Senioridade.estagio, r"\b(estagio|estagiari[oa]|internship|intern|aprendiz)\b"),
     (Senioridade.lideranca, r"\b(lead|lider|lideranca|head|gerente|manager|coordenador[a]?|principal|staff|tech lead)\b"),
-    (Senioridade.senior, r"\b(senior|sr|especialista|specialist|iii)\b"),
+    # "master" = nível acima de sênior em consultorias (ex.: CI&T), exceto "master data management".
+    (Senioridade.senior, r"\b(senior|sr|especialista|specialist|iii)\b|\bmaster\b(?!\s+data\s+management)"),
     (Senioridade.pleno, r"\b(pleno|pl|mid|mid-level|ii)\b"),
     (Senioridade.junior, r"\b(junior|jr|trainee|entry level|entry-level)\b|\bi$"),
 ]

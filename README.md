@@ -54,7 +54,7 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 |---|---|
 | Coleta Gupy (endpoint do portal público, sem login) | ✅ implementada; não é API oficial, ver limitações |
 | Coleta Adzuna (API oficial) | ✅ implementada; depende de `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` e da cobertura BR |
-| Coleta Greenhouse / Lever (APIs públicas por empresa) | ✅ implementada; desligada até você listar empresas |
+| Coleta Greenhouse / Lever (APIs públicas por empresa) | ✅ ativa com 13 empresas brasileiras e filtro por título |
 | Bronze / Silver / Gold incrementais em Parquet + DuckDB | ✅ |
 | Deduplicação por id, URL canônica e chave alternativa entre fontes | ✅ |
 | Histórico de observações e mudanças de requisitos | ✅ |
