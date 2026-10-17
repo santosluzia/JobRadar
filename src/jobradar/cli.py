@@ -71,19 +71,21 @@ def cmd_publish(a, s) -> int:
 
 def cmd_notify(a, s) -> int:
     from .analytics import market
-    from .notifications import candidatas, enviar_smtp, registrar, renderizar
+    from .notifications import enviar_smtp, registrar, renderizar, selecionar
     from .transformations.skills import Taxonomy
     agora = utcnow()
     lake = Lake(s.lake)
-    vagas = candidatas(s, agora)
+    vagas, excedentes = selecionar(s, agora)
     nomes = {k.id: k.nome for k in Taxonomy(s.skills).skills}
-    assunto, corpo, texto = renderizar(vagas, agora, nomes, market.fontes(market.carregar(lake)))
+    cartoes = int(s.sources.get("notificacoes", {}).get("cartoes", 10))
+    assunto, corpo, texto = renderizar(vagas, agora, nomes, market.fontes(market.carregar(lake)),
+                                       cartoes=cartoes, excedentes=excedentes)
     if a.dry_run:
         out = Path(a.html_out or "jobradar-email.html")
         out.write_text(corpo, encoding="utf-8")
         print(f"{assunto}\n(prévia em {out}; nada enviado nem registrado)")
         return 0
-    if not vagas and not s.sources.get("notificacoes", {}).get("enviar_quando_vazio", False):
+    if not vagas and not s.sources.get("notificacoes", {}).get("enviar_quando_vazio", True):
         print("nenhuma vaga nova para notificar")
         _resumo_github("Notificações: 0 (nenhuma vaga nova)")
         return 0

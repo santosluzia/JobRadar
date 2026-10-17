@@ -63,7 +63,7 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 | Score de aderência explicável | ✅ |
 | Recomendações de estudo com regras de confiança | ✅ |
 | Contrato público v1 validado (JSON Schema) | ✅ |
-| E-mail HTML diário sem repetição | ✅ depende dos secrets SMTP |
+| E-mail HTML diário sem repetição | ✅ vagas publicadas ontem e hoje + encontradas atrasadas; 10 cartões e lista compacta |
 | Candidaturas e progresso de estudos (privado) | ✅ CLI (fora do painel por enquanto) |
 | Painel Streamlit privado (Visão geral, Mercado e Vagas) | ✅ roda localmente; Vagas lista todas as vagas, mais recentes primeiro, por fonte e com filtros |
 | Dashboard público no portfólio | ✅ rota `/jobradar` entregue como PR separado |

@@ -1,3 +1,3 @@
-from .email import candidatas, enviar_smtp, registrar, renderizar
+from .email import candidatas, enviar_smtp, registrar, renderizar, selecionar
 
-__all__ = ["candidatas", "renderizar", "enviar_smtp", "registrar"]
+__all__ = ["candidatas", "selecionar", "renderizar", "enviar_smtp", "registrar"]

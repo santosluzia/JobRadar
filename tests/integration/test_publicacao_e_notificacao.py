@@ -2,12 +2,14 @@
 import json
 from datetime import timedelta
 
+import pandas as pd
 import pytest
 
 from jobradar import pipeline
 from jobradar.analytics import market
 from jobradar.applications import atualizar_candidatura, atualizar_estudo
-from jobradar.notifications import candidatas, registrar, renderizar
+from jobradar.analytics.selection import inicio_periodo
+from jobradar.notifications import candidatas, registrar, renderizar, selecionar
 from jobradar.publishing import ContractError, construir, publicar
 from jobradar.recommendations import recomendar
 from jobradar.scoring import Profile
@@ -70,6 +72,36 @@ def test_envio_que_falha_nao_registra(populado, monkeypatch):
         dry_run, html_out, run_id = False, None, "r1"
     assert cli.cmd_notify(A, populado) == cli.EXIT_NOTIFICACAO
     assert Lake(populado.lake).read("meta/notifications").empty
+
+
+def test_email_separa_publicadas_ontem_e_hoje_das_encontradas_atrasadas(populado):
+    vagas = candidatas(populado, AGORA)
+    inicio = inicio_periodo("ontem_e_hoje", AGORA)
+    do_dia = [v for v in vagas if v.secao == "do_dia"]
+    atrasadas = [v for v in vagas if v.secao == "atrasada"]
+    assert do_dia and atrasadas
+    assert all(pd.Timestamp(v.job["publicada_em"]) >= inicio for v in do_dia)
+    assert all(pd.Timestamp(v.job["publicada_em"]) < inicio for v in atrasadas)
+    assert [v.score for v in do_dia] == sorted((v.score for v in do_dia), reverse=True)
+    assert vagas.index(do_dia[-1]) < vagas.index(atrasadas[0])  # do dia primeiro
+
+
+def test_email_cartoes_para_as_melhores_e_lista_compacta_para_o_resto(populado):
+    vagas = candidatas(populado, AGORA)
+    n_dia = sum(v.secao == "do_dia" for v in vagas)
+    assunto, corpo, texto = renderizar(vagas, AGORA, {}, [], cartoes=1)
+    assert f"{n_dia} vaga(s) publicada(s) ontem e hoje" in assunto and "encontrada(s) agora" in assunto
+    assert corpo.count("Abrir vaga para se candidatar") == 1
+    assert "Encontradas agora, publicadas antes" in corpo and "Demais publicadas" in corpo
+    assert all(v.job["url"] in texto for v in vagas)
+
+
+def test_email_respeita_max_vagas_e_avisa_o_excedente(populado):
+    populado.sources["notificacoes"]["max_vagas"] = 1
+    vagas, excedentes = selecionar(populado, AGORA)
+    assert len(vagas) == 1 and excedentes >= 1
+    _, corpo, _ = renderizar(vagas, AGORA, {}, [], excedentes=excedentes)
+    assert f"Mais {excedentes} vaga(s) não couberam" in corpo
 
 
 def test_email_html_escapa_conteudo_de_terceiros(populado):
