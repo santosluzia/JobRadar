@@ -165,6 +165,9 @@ def main(argv: list[str] | None = None) -> None:
             stream.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # O httpx registra a URL completa de cada requisição, e a da Adzuna leva app_key na query.
+    if not a.verbose:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
     s = carregar(lake=a.lake)
     sys.exit(a.f(a, s))
 
