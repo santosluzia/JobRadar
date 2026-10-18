@@ -1,6 +1,6 @@
 # Contrato de dados público — v1
 
-Interface estável entre o JobRadar (produtor) e o portfólio `santos-luzia` (consumidor).
+Interface estável entre o JobRadar (produtor) e o portfólio [santosluzia.com](https://santosluzia.com/vagas-engenharia-de-dados) (consumidor).
 
 **URL base:** `https://raw.githubusercontent.com/santosluzia/jobradar/refs/heads/public-data/v1/`
 
@@ -69,4 +69,4 @@ O consumidor deve ler `schema_version`, aceitar qualquer `1.x` e ignorar campos 
 
 ## Exemplo de consumo (TypeScript + zod)
 
-O portfólio valida a resposta com zod antes de renderizar, em `src/services/jobradar.ts` no repositório `santos-luzia`. Se a validação falhar, a página mostra um estado de erro em vez de dados quebrados.
+O portfólio valida a resposta com zod antes de renderizar (`src/services/vagas.ts` e `src/types/vagas.ts`, na rota `/vagas-engenharia-de-dados`). Se a validação falhar, a página mostra um estado de erro em vez de dados quebrados.

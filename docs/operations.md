@@ -40,8 +40,11 @@ O `GITHUB_TOKEN` é automático. O workflow pede só `contents: write`, que vale
 
 ## 5. Agendamento e fuso
 
-- O cron `47 9 * * *` é em UTC: **06:47 em São Paulo** (UTC−3; o Brasil não tem horário de verão desde 2019).
-- O GitHub pode atrasar execuções agendadas em horários de pico, às vezes em dezenas de minutos. Por isso o minuto não é cheio.
+- Os horários do cron são em UTC; São Paulo é UTC−3 (o Brasil não tem horário de verão desde 2019).
+- **Principal:** `47 9 * * *` = **06:47 em São Paulo**. **Reservas:** `17 12 * * *` (09:17) e `37 15 * * *` (12:37).
+- O GitHub **não garante** o horário de execuções agendadas: elas atrasam em horários de pico e às vezes são descartadas. Em 17/10/2026, por exemplo, a execução das 06:47 só começou às 10:12. As reservas existem para isso.
+- O job `checar` consulta a API do Actions (`actions: read`). Se já houve uma execução **agendada** com sucesso no dia de São Paulo, a reserva termina em segundos, sem coletar e sem e-mail. Se a principal falhou, a reserva seguinte tenta de novo; o e-mail não repete vagas já enviadas.
+- Execuções manuais (**Run workflow**) sempre rodam e não contam para a checagem. Uma execução manual com e-mail num dia em que a agendada ainda não rodou gera dois e-mails nesse dia, mas sem repetir vagas.
 - Workflows agendados são **desativados após 60 dias sem atividade** no repositório. Os commits diários vão para a branch `public-data`; se o GitHub desativar mesmo assim, reative em Actions.
 
 ## 6. Custos e limites (camadas gratuitas)

@@ -1,11 +1,18 @@
 name: Pipeline diário
 
-# Cron do GitHub Actions é sempre UTC. 09:47 UTC = 06:47 em São Paulo (UTC-3; sem horário
-# de verão desde 2019). Minuto "quebrado" de propósito: execuções na hora cheia sofrem mais
-# atraso na fila do GitHub, que pode chegar a dezenas de minutos em horários de pico.
+# Cron do GitHub Actions é sempre UTC; São Paulo é UTC-3 (sem horário de verão desde 2019).
+# O GitHub não garante o horário: a execução agendada pode atrasar horas ou nem acontecer
+# (em 17/10/2026 a das 06:47 só começou às 10:12). Por isso há três horários:
+#   09:47 UTC = 06:47 SP (principal) · 12:17 UTC = 09:17 SP · 15:37 UTC = 12:37 SP (reservas).
+# O job "checar" deixa só a primeira execução agendada do dia rodar: se já houve uma com
+# sucesso hoje (dia de São Paulo), as reservas terminam em segundos, sem coletar nem mandar
+# e-mail. Se a principal falhar, a reserva seguinte tenta de novo. Minutos "quebrados" de
+# propósito: a hora cheia é o horário mais congestionado da fila do GitHub.
 on:
   schedule:
     - cron: "47 9 * * *"
+    - cron: "17 12 * * *"
+    - cron: "37 15 * * *"
   workflow_dispatch:
     inputs:
       notificar:
@@ -13,10 +20,12 @@ on:
         type: boolean
         default: true
 
-# Permissão mínima: o GITHUB_TOKEN só escreve NESTE repositório (branch public-data).
-# O histórico privado é acessado por uma deploy key restrita ao repositório jobradar-data.
+# Permissão mínima: o GITHUB_TOKEN só escreve NESTE repositório (branch public-data) e lê a
+# lista de execuções deste workflow (job "checar"). O histórico privado é acessado por uma
+# deploy key restrita ao repositório jobradar-data.
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: jobradar-pipeline
@@ -28,7 +37,36 @@ env:
   DATA_REPO: ${{ vars.JOBRADAR_DATA_REPO || format('{0}-data', github.repository) }}
 
 jobs:
+  checar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rodar: ${{ steps.dia.outputs.rodar }}
+    steps:
+      - name: Já rodou hoje?
+        id: dia
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENTO: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Execução manual (Run workflow) sempre roda.
+          if [ "$EVENTO" != "schedule" ]; then echo "rodar=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          hoje=$(TZ=America/Sao_Paulo date +%F)
+          runs="repos/$REPO/actions/workflows/daily-pipeline.yml/runs?event=schedule&status=success&per_page=10"
+          for criada in $(gh api "$runs" --jq '.workflow_runs[].created_at'); do
+            if [ "$(TZ=America/Sao_Paulo date -d "$criada" +%F)" = "$hoje" ]; then
+              echo "Já houve execução agendada com sucesso hoje ($criada UTC); esta reserva não roda."
+              echo "rodar=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "Nenhuma execução agendada com sucesso hoje ($hoje); rodando."
+          echo "rodar=true" >> "$GITHUB_OUTPUT"
+
   pipeline:
+    needs: checar
+    if: needs.checar.outputs.rodar == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

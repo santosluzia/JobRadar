@@ -68,7 +68,7 @@ notificacoes:
   # não enviadas: a mesma regra do filtro "Ontem e hoje" da tela Vagas.
   cartoes: 10                  # as N de maior score ganham cartão completo; o resto vai em lista compacta
   incluir_atrasadas: true      # seção "encontradas agora, publicadas antes" (fonte atrasou / empresa nova)
-  max_vagas: 150               # proteção: o Gmail corta e-mails acima de ~100 KB; o excedente é avisado
+  max_vagas: 130               # proteção: o Gmail corta e-mails acima de ~102 KB (130 vagas ≈ 92 KB); o excedente é avisado
   enviar_quando_vazio: true    # manda e-mail mesmo sem vagas novas (serve de alarme se a coleta parar)
 
 retencao:
