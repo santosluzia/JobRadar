@@ -36,26 +36,51 @@ O `GITHUB_TOKEN` é automático. O workflow pede só `contents: write`, que vale
 1. Em **Actions → Pipeline diário → Run workflow**, rode com "Enviar e-mail" desmarcado.
 2. No resumo da execução, confira a tabela por fonte. Se a Adzuna mostrar `❌` ou 0 registros, a cobertura BR ou a chave precisa de ajuste.
 3. Verifique se a branch `public-data` foi criada e se `v1/manifest.json` abre no navegador.
-4. Rode de novo com e-mail. A partir daí, o agendamento diário assume.
+4. Rode de novo com e-mail. Depois configure o disparo externo (seção 5.1); a partir daí o agendamento assume.
 
 ## 5. Agendamento e fuso
 
-- Os horários do cron são em UTC; São Paulo é UTC−3 (o Brasil não tem horário de verão desde 2019).
-- **Principal:** `47 9 * * *` = **06:47 em São Paulo**. **Reservas:** `17 12 * * *` (09:17) e `37 15 * * *` (12:37).
-- O GitHub **não garante** o horário de execuções agendadas: elas atrasam em horários de pico e às vezes são descartadas. Em 17/10/2026, por exemplo, a execução das 06:47 só começou às 10:12. As reservas existem para isso.
-- O job `checar` consulta a API do Actions (`actions: read`). Se já houve uma execução **agendada** com sucesso no dia de São Paulo, a reserva termina em segundos, sem coletar e sem e-mail. Se a principal falhou, a reserva seguinte tenta de novo; o e-mail não repete vagas já enviadas.
-- Execuções manuais (**Run workflow**) sempre rodam e não contam para a checagem. Uma execução manual com e-mail num dia em que a agendada ainda não rodou gera dois e-mails nesse dia, mas sem repetir vagas.
-- Workflows agendados são **desativados após 60 dias sem atividade** no repositório. Os commits diários vão para a branch `public-data`; se o GitHub desativar mesmo assim, reative em Actions.
+- Três execuções por dia, em turnos no horário de São Paulo (UTC−3; o Brasil não tem horário de verão desde 2019): **manhã 07:00**, **tarde 12:00** e **noite 17:00**.
+- Quem dispara no horário é o **cron-job.org** (seção 5.1), chamando a API do GitHub (`workflow_dispatch` com `origem=agendador`). O disparo pela API começa em segundos.
+- O cron do próprio GitHub fica **só de reserva**: `13 10`, `13 15` e `13 20` UTC (07:13, 12:13 e 17:13 em SP). Ele não garante horário: em 17 e 18/10/2026 a execução das 06:47 só começou depois das 10h, e às vezes ela nem acontece.
+- O job `checar` consulta a API do Actions (`actions: read`) e calcula o turno pela hora de criação da execução: manhã até 11:30, tarde até 16:30, noite até 23:59. Se já houve uma execução **agendada** (cron-job.org ou reserva) com sucesso no mesmo turno do mesmo dia, a execução termina em segundos, sem coletar e sem e-mail. Se a do cron-job.org falhou ou não chegou, a reserva do GitHub roda quando sair da fila.
+- **E-mail:** cada turno manda e-mail só com as vagas ainda não enviadas. A manhã manda mesmo sem vaga nova (serve de alarme se a coleta parar); tarde e noite só mandam se houver vaga nova (`jobradar notify --pular-se-vazio`).
+- Execuções manuais (**Run workflow**, com origem `manual`) sempre rodam, mandam e-mail se "Enviar e-mail" estiver marcado e não contam para o turno.
+- Workflows agendados pelo cron do GitHub são **desativados após 60 dias sem atividade** no repositório. Os commits vão para a branch `public-data`; se o GitHub desativar mesmo assim, reative em Actions. O disparo pelo cron-job.org não depende disso.
+
+### 5.1 Disparo externo (cron-job.org)
+
+**Token do GitHub** (só dispara execuções deste workflow):
+
+1. GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
+2. **Repository access:** *Only select repositories* → `santosluzia/JobRadar`.
+3. **Permissions → Repository permissions → Actions:** *Read and write*. Nada mais.
+4. Anote a data de expiração: quando vencer, o cron-job.org passa a receber `401` e só as reservas do GitHub rodam.
+
+**Tarefa no [cron-job.org](https://cron-job.org)** (conta gratuita), em **Create cronjob**:
+
+| Campo | Valor |
+|---|---|
+| URL | `https://api.github.com/repos/santosluzia/JobRadar/actions/workflows/daily-pipeline.yml/dispatches` |
+| Execution schedule | *Custom*: dias = todos, horas = `7`, `12`, `17`, minutos = `0` |
+| Time zone (em *Advanced*) | `America/Sao_Paulo` |
+| Request method | `POST` |
+| Headers | `Accept: application/vnd.github+json` · `Authorization: Bearer <token>` · `X-GitHub-Api-Version: 2022-11-28` · `Content-Type: application/json` |
+| Request body | `{"ref":"main","inputs":{"origem":"agendador"}}` |
+| Notifications | ligue o aviso de falha |
+
+Use **Test run**: a resposta esperada é `204 No Content`, e em Actions aparece uma execução **"Agendado (cron-job.org)"**. Se o teste cair num turno que já rodou, essa execução termina em segundos (é o esperado).
 
 ## 6. Custos e limites (camadas gratuitas)
 
 | Recurso | Limite relevante | Uso estimado |
 |---|---|---|
-| GitHub Actions | Gratuito para repositórios públicos em runners padrão | ~3–6 min/dia |
+| GitHub Actions | Gratuito para repositórios públicos em runners padrão | ~5–10 min/dia (3 execuções + reservas que terminam em segundos) |
 | Repositório privado | Arquivos individuais acima de 50 MB geram alerta; acima de 100 MB são bloqueados | Tabelas Parquet de poucos MB |
+| cron-job.org | Gratuito | 3 chamadas/dia |
 | raw.githubusercontent.com | Uso razoável; cache de alguns minutos | 4 arquivos pequenos por visita |
-| Gmail SMTP | Limite diário de envios da conta | 1 e-mail/dia |
-| Adzuna | Limite de chamadas do plano da conta (consulte o painel) | 1 chamada por termo/dia |
+| Gmail SMTP | Limite diário de envios da conta | até 3 e-mails/dia |
+| Adzuna | Limite de chamadas do plano da conta (consulte o painel) | 1 chamada por termo por execução (9 termos × 3 = 27/dia) |
 
 Não há custo previsto. A dependência externa crítica é o formato do endpoint da Gupy.
 

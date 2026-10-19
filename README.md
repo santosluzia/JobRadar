@@ -22,9 +22,9 @@ Quem está migrando para Engenharia de Dados precisa responder, com dados e não
 
 ## Como funciona
 
-Tudo acontece no **GitHub Actions**, uma vez por dia, sem servidor e sem custo. O portfólio não executa nada: ele só lê os arquivos JSON que o pipeline publica.
+Tudo acontece no **GitHub Actions**, três vezes por dia, sem servidor e sem custo. O portfólio não executa nada: ele só lê os arquivos JSON que o pipeline publica.
 
-1. **Agendamento.** O workflow [`Pipeline diário`](.github/workflows/daily-pipeline.yml) roda às **06:47 (horário de São Paulo)**. O GitHub não garante o horário das execuções agendadas: elas podem atrasar horas ou nem acontecer. Por isso há reservas às 09:17 e às 12:37. Um job de checagem deixa rodar só a primeira execução que der certo no dia, então as reservas não coletam de novo nem repetem o e-mail.
+1. **Agendamento.** O workflow [`Pipeline diário`](.github/workflows/daily-pipeline.yml) roda às **07:00, 12:00 e 17:00 (horário de São Paulo)**, disparado pelo [cron-job.org](https://cron-job.org) via API. O cron do próprio GitHub atrasa horas, então fica só de reserva. Um job de checagem deixa rodar só a primeira execução que der certo em cada turno, então as reservas não coletam de novo nem repetem o e-mail.
 2. **Coleta.** Os coletores consultam quatro fontes, com timeout, retry e métricas por fonte:
    - **Gupy**, pelo endpoint do portal público;
    - **Adzuna**, pela API oficial;
@@ -41,7 +41,7 @@ Tudo acontece no **GitHub Actions**, uma vez por dia, sem servidor e sem custo. 
 6. **Gold.** Ficam aqui os agregados para análise: tendências mensais, competências mais pedidas, distribuição por modalidade e senioridade, e os scores.
 7. **Histórico privado.** Bronze, Silver, Gold, o perfil e o registro de e-mails enviados são gravados no repositório **privado** `jobradar-data`, com uma deploy key de acesso restrito.
 8. **Dados públicos.** `jobradar publish` gera o contrato v1 (`jobs.json`, `market-summary.json`, `skill-trends.json`, `manifest.json`) e valida cada arquivo com JSON Schema antes de publicar na branch `public-data`. Se a validação falhar, o site continua com a última versão válida. Score e perfil **não** entram nos dados públicos.
-9. **E-mail diário.** Leva as vagas relevantes publicadas ontem e hoje, no mesmo visual do portfólio. As 10 de maior aderência vêm em cartões e o restante numa lista compacta, todas com o link "Abrir vaga para se candidatar". Cada vaga é enviada uma única vez, mesmo que o workflow seja reexecutado.
+9. **E-mail.** Cada turno leva as vagas relevantes publicadas ontem e hoje, no mesmo visual do portfólio. As 10 de maior aderência vêm em cartões e o restante numa lista compacta, todas com o link "Abrir vaga para se candidatar". Cada vaga é enviada uma única vez, mesmo que o workflow seja reexecutado. A manhã manda e-mail mesmo sem vaga nova (alarme de coleta parada); tarde e noite só se houver vaga nova.
 10. **Portfólio.** A rota [`/vagas-engenharia-de-dados`](https://santosluzia.com/vagas-engenharia-de-dados) lê o `jobs.json` direto do `raw.githubusercontent.com`, sem token e sem backend. A tela tem:
     - as vagas das mais recentes para as mais antigas, com abas por fonte;
     - filtros de período, empresa, local, modalidade, senioridade e busca;
@@ -54,7 +54,7 @@ flowchart LR
     A[Adzuna<br/>API oficial]
     GH[Greenhouse / Lever<br/>APIs públicas por empresa]
   end
-  subgraph Actions["GitHub Actions · todo dia 06:47 SP (+ reservas)"]
+  subgraph Actions["GitHub Actions · 07:00, 12:00 e 17:00 SP (cron-job.org + reservas)"]
     C[Coletores<br/>retry · métricas] --> B[(Bronze<br/>JSON.gz por fonte/dia)]
     B --> S[(Silver<br/>schema canônico · dedup<br/>observações · status)]
     S --> GO[(Gold<br/>tendências · competências · scores)]
@@ -63,7 +63,7 @@ flowchart LR
   G & A & GH --> C
   S & GO <-->|deploy key| P[(jobradar-data<br/>repositório PRIVADO)]
   V -->|GITHUB_TOKEN| PD[branch public-data<br/>JSON validados]
-  GO --> E[E-mail diário<br/>sem repetição]
+  GO --> E[E-mail por turno<br/>sem repetição]
   PD -->|raw.githubusercontent.com| SITE[santosluzia.com<br/>/vagas-engenharia-de-dados]
 ```
 
@@ -92,8 +92,8 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 | Extração de competências (requisito × desejável) | ✅ heurística configurável |
 | Score de aderência explicável e recomendações de estudo | ✅ privados |
 | Contrato público v1 validado (JSON Schema) | ✅ |
-| Execução diária com reservas e sem duplicar | ✅ 06:47, 09:17 e 12:37 (SP) |
-| E-mail HTML diário sem repetição, no visual do portfólio | ✅ vagas de ontem e hoje + encontradas atrasadas; 10 cartões e lista compacta |
+| Três execuções por dia, com reservas e sem duplicar | ✅ 07:00, 12:00 e 17:00 (SP) via cron-job.org |
+| E-mail HTML por turno sem repetição, no visual do portfólio | ✅ vagas de ontem e hoje + encontradas atrasadas; 10 cartões e lista compacta |
 | Tela pública de vagas no portfólio | ✅ [santosluzia.com/vagas-engenharia-de-dados](https://santosluzia.com/vagas-engenharia-de-dados) |
 | Candidaturas e progresso de estudos (privado) | ✅ CLI |
 
@@ -118,7 +118,7 @@ jobradar notify --dry-run                   # prévia do e-mail em jobradar-emai
 jobradar recomendacoes                      # prioridades de estudo
 ```
 
-Para rodar a coleta na nuvem fora do horário, use **Actions → Pipeline diário → Run workflow**. A execução manual sempre roda, e o campo "Enviar e-mail" escolhe se manda o e-mail.
+Para rodar a coleta na nuvem fora do horário, use **Actions → Pipeline diário → Run workflow**. A execução manual (origem `manual`) sempre roda, não conta para o turno, e o campo "Enviar e-mail" escolhe se manda o e-mail.
 
 Registrar candidaturas e estudos (ficam em `jobradar-data/private/`):
 
@@ -145,7 +145,7 @@ Variáveis de ambiente: veja [`.env.example`](.env.example). O setup do GitHub (
 - **Status de vaga.** Sumir de uma coleta não encerra a vaga: ela vira "desconhecida" depois de 14 dias sem observação. Só é "encerrada" com evidência (prazo vencido informado pela fonte).
 - **Score não é probabilidade.** Ele mede compatibilidade com o perfil declarado. "Sem evidência" significa que a competência não está registrada no perfil, não que a pessoa não a tenha.
 - **Gupy.** O endpoint usado pelo portal público não é uma API documentada. Pode mudar sem aviso; o coletor detecta mudança de formato e a execução registra a falha.
-- **Horário do GitHub.** As execuções agendadas podem atrasar; as reservas cobrem o dia, mas o e-mail pode chegar depois das 06:47.
+- **Horário.** O disparo depende do cron-job.org e de um token do GitHub com validade. Se ele falhar, as reservas do GitHub cobrem o turno, mas com horas de atraso.
 - **Correlação ≠ causalidade.** Tendências descrevem a amostra coletada; não explicam por que a demanda mudou.
 
 ## Stack

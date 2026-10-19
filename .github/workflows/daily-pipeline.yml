@@ -1,24 +1,33 @@
 name: Pipeline diário
 
-# Cron do GitHub Actions é sempre UTC; São Paulo é UTC-3 (sem horário de verão desde 2019).
-# O GitHub não garante o horário: a execução agendada pode atrasar horas ou nem acontecer
-# (em 17/10/2026 a das 06:47 só começou às 10:12). Por isso há três horários:
-#   09:47 UTC = 06:47 SP (principal) · 12:17 UTC = 09:17 SP · 15:37 UTC = 12:37 SP (reservas).
-# O job "checar" deixa só a primeira execução agendada do dia rodar: se já houve uma com
-# sucesso hoje (dia de São Paulo), as reservas terminam em segundos, sem coletar nem mandar
-# e-mail. Se a principal falhar, a reserva seguinte tenta de novo. Minutos "quebrados" de
-# propósito: a hora cheia é o horário mais congestionado da fila do GitHub.
+# Três execuções por dia, em turnos (horário de São Paulo, UTC-3, sem horário de verão desde 2019):
+#   manhã 07:00 · tarde 12:00 · noite 17:00.
+# Quem dispara no horário é o cron-job.org, chamando a API (workflow_dispatch com origem=agendador);
+# veja docs/operations.md. O cron do próprio GitHub fica só de reserva: ele não garante o horário
+# e costuma atrasar horas (em 17/10/2026 a execução das 06:47 só começou às 10:12).
+# Reservas: 10:13 UTC = 07:13 SP · 15:13 UTC = 12:13 SP · 20:13 UTC = 17:13 SP.
+# O job "checar" deixa rodar só a primeira execução agendada de cada turno: se já houve uma com
+# sucesso no mesmo turno do mesmo dia, as outras terminam em segundos, sem coletar nem mandar
+# e-mail. Se a do cron-job.org falhar ou não chegar, a reserva do GitHub roda quando sair da fila.
 on:
   schedule:
-    - cron: "47 9 * * *"
-    - cron: "17 12 * * *"
-    - cron: "37 15 * * *"
+    - cron: "13 10 * * *"
+    - cron: "13 15 * * *"
+    - cron: "13 20 * * *"
   workflow_dispatch:
     inputs:
       notificar:
         description: "Enviar e-mail ao final"
         type: boolean
         default: true
+      origem:
+        description: "manual roda sempre; agendador (usado pelo cron-job.org) conta como a execução do turno"
+        type: choice
+        options: [manual, agendador]
+        default: manual
+
+# O job "checar" reconhece as execuções agendadas pelo título.
+run-name: ${{ github.event_name == 'schedule' && 'Agendado (reserva GitHub)' || (inputs.origem == 'agendador' && 'Agendado (cron-job.org)' || 'Manual') }}
 
 # Permissão mínima: o GITHUB_TOKEN só escreve NESTE repositório (branch public-data) e lê a
 # lista de execuções deste workflow (job "checar"). O histórico privado é acessado por uma
@@ -41,27 +50,48 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      rodar: ${{ steps.dia.outputs.rodar }}
+      rodar: ${{ steps.turno.outputs.rodar }}
+      pular_vazio: ${{ steps.turno.outputs.pular_vazio }}
     steps:
-      - name: Já rodou hoje?
-        id: dia
+      - name: Já rodou neste turno?
+        id: turno
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENTO: ${{ github.event_name }}
+          AGENDADA: ${{ github.event_name == 'schedule' || inputs.origem == 'agendador' }}
           REPO: ${{ github.repository }}
+          RUN: ${{ github.run_id }}
         run: |
-          # Execução manual (Run workflow) sempre roda.
-          if [ "$EVENTO" != "schedule" ]; then echo "rodar=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          hoje=$(TZ=America/Sao_Paulo date +%F)
-          runs="repos/$REPO/actions/workflows/daily-pipeline.yml/runs?event=schedule&status=success&per_page=10"
-          for criada in $(gh api "$runs" --jq '.workflow_runs[].created_at'); do
-            if [ "$(TZ=America/Sao_Paulo date -d "$criada" +%F)" = "$hoje" ]; then
-              echo "Já houve execução agendada com sucesso hoje ($criada UTC); esta reserva não roda."
+          # Turno pelo horário de criação da execução em São Paulo. Os limites (11:30 e 16:30) ficam
+          # longe dos disparos (07:00, 12:00, 17:00) e cabem as reservas atrasadas do GitHub.
+          turno_de() {
+            local hm; hm=$((10#$(TZ=America/Sao_Paulo date -d "$1" +%H%M)))
+            if [ "$hm" -lt 1130 ]; then echo manha; elif [ "$hm" -lt 1630 ]; then echo tarde; else echo noite; fi
+          }
+          dia_de() { TZ=America/Sao_Paulo date -d "$1" +%F; }
+
+          criada=$(gh api "repos/$REPO/actions/runs/$RUN" --jq .created_at)
+          dia=$(dia_de "$criada"); turno=$(turno_de "$criada")
+          echo "Execução de $dia, turno: $turno."
+
+          # Execução manual (Run workflow) sempre roda, manda o e-mail mesmo vazio e não conta para o turno.
+          if [ "$AGENDADA" != "true" ]; then
+            echo "rodar=true" >> "$GITHUB_OUTPUT"; echo "pular_vazio=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Só a manhã manda e-mail sem vaga nova (alarme de coleta parada); tarde e noite só se houver vaga.
+          [ "$turno" = manha ] && echo "pular_vazio=false" >> "$GITHUB_OUTPUT" || echo "pular_vazio=true" >> "$GITHUB_OUTPUT"
+
+          # Execuções agendadas concluídas com sucesso (as que terminaram em segundos também contam:
+          # só terminam assim se já havia outra com sucesso no mesmo turno).
+          runs="repos/$REPO/actions/workflows/daily-pipeline.yml/runs?status=success&per_page=30"
+          filtro='.workflow_runs[] | select(.event == "schedule" or (.display_title | startswith("Agendado"))) | .created_at'
+          for outra in $(gh api "$runs" --jq "$filtro"); do
+            if [ "$(dia_de "$outra")" = "$dia" ] && [ "$(turno_de "$outra")" = "$turno" ]; then
+              echo "Já houve execução agendada com sucesso neste turno ($outra UTC); esta não roda."
               echo "rodar=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
           done
-          echo "Nenhuma execução agendada com sucesso hoje ($hoje); rodando."
+          echo "Nenhuma execução agendada com sucesso neste turno; rodando."
           echo "rodar=true" >> "$GITHUB_OUTPUT"
 
   pipeline:
@@ -119,7 +149,7 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: jobradar notify --run-id "$RUN_ID"
+        run: jobradar notify --run-id "$RUN_ID" ${{ needs.checar.outputs.pular_vazio == 'true' && '--pular-se-vazio' || '' }}
 
       - name: Persistir registro de notificações
         if: github.event_name == 'schedule' || inputs.notificar

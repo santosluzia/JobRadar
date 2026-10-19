@@ -64,7 +64,7 @@ filtros:
   score_minimo: 45             # aderência mínima (0–100) para ir ao e-mail
 
 notificacoes:
-  # O e-mail diário traz as vagas relevantes publicadas ontem e hoje (horário de São Paulo) ainda
+  # O e-mail de cada turno traz as vagas relevantes publicadas ontem e hoje (horário de São Paulo) ainda
   # não enviadas: a mesma regra do filtro "Ontem e hoje" da tela Vagas.
   cartoes: 10                  # as N de maior score ganham cartão completo; o resto vai em lista compacta
   incluir_atrasadas: true      # seção "encontradas agora, publicadas antes" (fonte atrasou / empresa nova)
