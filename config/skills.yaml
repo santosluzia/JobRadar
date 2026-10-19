@@ -6,7 +6,7 @@
 competencias:
   # Linguagens
   - {id: python, nome: Python, categoria: linguagem, padroes: ["\\bpython\\b", "pandas", "pyspark"], esforco: medio, projeto: true}
-  - {id: sql, nome: SQL, categoria: linguagem, padroes: ["\\bsql\\b", "t-sql", "pl/?sql", "consultas sql"], esforco: baixo, projeto: true}
+  - {id: sql, nome: SQL, categoria: linguagem, padroes: ["\\bsql\\b", "t-sql", "pl/?sql", "consultas sql", "stored procedures?"], esforco: baixo, projeto: true}
   - {id: scala, nome: Scala, categoria: linguagem, padroes: ["\\bscala\\b"], esforco: alto, projeto: true}
   - {id: java, nome: Java, categoria: linguagem, padroes: ["\\bjava\\b(?!script)"], esforco: alto, projeto: true}
   # Processamento
@@ -30,6 +30,8 @@ competencias:
   - {id: nosql, nome: NoSQL, categoria: armazenamento, padroes: ["nosql", "mongodb", "cassandra", "dynamodb", "cosmos ?db"], esforco: medio, projeto: true}
   - {id: oracle, nome: Oracle, categoria: armazenamento, padroes: ["\\boracle\\b"], esforco: medio, projeto: false}
   - {id: postgres, nome: PostgreSQL, categoria: armazenamento, padroes: ["postgres"], esforco: baixo, projeto: true}
+  - {id: redis, nome: Redis, categoria: armazenamento, padroes: ["\\bredis\\b"], esforco: baixo, projeto: true}
+  - {id: opensearch, nome: Elasticsearch / OpenSearch, categoria: armazenamento, padroes: ["elasticsearch", "opensearch", "\\belk\\b"], esforco: medio, projeto: true}
   # Qualidade e governança
   - {id: qualidade_dados, nome: Qualidade de dados, categoria: governanca, padroes: ["qualidade de dados", "data quality", "great expectations", "\\bsoda\\b", "observabilidade de dados"], esforco: medio, projeto: true}
   - {id: governanca, nome: Governança de dados, categoria: governanca, padroes: ["governanca de dados", "data governance", "catalogo de dados", "data catalog", "linhagem", "lineage", "metadados"], esforco: medio, projeto: true}
@@ -38,8 +40,11 @@ competencias:
   - {id: git, nome: Git, categoria: devops, padroes: ["\\bgit\\b", "github", "gitlab", "bitbucket"], esforco: baixo, projeto: true}
   - {id: docker, nome: Docker, categoria: devops, padroes: ["docker", "container"], esforco: baixo, projeto: true}
   - {id: cicd, nome: CI/CD, categoria: devops, padroes: ["ci/?cd", "github actions", "azure devops", "jenkins"], esforco: medio, projeto: true}
+  - {id: linux, nome: Linux / Shell, categoria: devops, padroes: ["\\blinux\\b", "shell script", "\\bbash\\b"], esforco: baixo, projeto: true}
+  - {id: observabilidade, nome: Grafana / Monitoramento, categoria: devops, padroes: ["grafana", "prometheus", "datadog", "zabbix"], esforco: baixo, projeto: true}
   - {id: terraform, nome: Terraform / IaC, categoria: devops, padroes: ["terraform", "infra(estrutura)? como codigo", "\\biac\\b"], esforco: medio, projeto: true}
   - {id: apis, nome: APIs REST, categoria: integracao, padroes: ["\\bapis?\\b", "\\brest\\b"], esforco: baixo, projeto: true}
+  - {id: spring_boot, nome: Spring Boot, categoria: integracao, padroes: ["spring ?boot", "\\bspring\\b"], esforco: medio, projeto: true}
   # Visualização
   - {id: power_bi, nome: Power BI, categoria: visualizacao, padroes: ["power ?bi"], esforco: baixo, projeto: true}
   - {id: looker_tableau, nome: Looker / Tableau, categoria: visualizacao, padroes: ["looker", "tableau", "metabase"], esforco: baixo, projeto: true}

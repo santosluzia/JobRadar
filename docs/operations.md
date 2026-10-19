@@ -80,7 +80,7 @@ Use **Test run**: a resposta esperada é `204 No Content`, e em Actions aparece 
 | cron-job.org | Gratuito | 4 chamadas/dia |
 | raw.githubusercontent.com | Uso razoável; cache de alguns minutos | 4 arquivos pequenos por visita |
 | Gmail SMTP | Limite diário de envios da conta | até 4 e-mails/dia |
-| Adzuna | Limite de chamadas do plano da conta (consulte o painel) | 1 chamada por termo por execução (9 termos × 4 = 36/dia) |
+| Adzuna | Limite de chamadas do plano da conta (consulte o painel) | 1 chamada por termo por execução (14 termos × 4 = 56/dia, ~1.700/mês) |
 
 Não há custo previsto. A dependência externa crítica é o formato do endpoint da Gupy.
 

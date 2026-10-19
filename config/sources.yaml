@@ -13,6 +13,11 @@ busca:
     - analista de dados
     - governanca de dados
     - qualidade de dados
+    - data quality
+    - integracao de dados
+    - etl
+    - big data
+    - databricks
   max_dias_publicacao: 30      # vagas publicadas antes disso não entram como "novas"
 
 fontes:
@@ -57,10 +62,10 @@ filtros:
   locais:                      # vale para híbrido/presencial; remoto passa sempre
     ufs: [SP]
     cidades: [sao paulo, osasco, barueri, santana de parnaiba, carapicuiba, cotia]
-  tecnologias_interesse: [python, sql, spark, databricks, azure, airflow, dbt]
+  tecnologias_interesse: [python, sql, databricks, spark, etl, data_lake, qualidade_dados, governanca, oracle]
   exigir_tecnologia_interesse: false   # true = só vagas que citem ao menos uma delas
   palavras_obrigatorias: []    # se preenchido, a vaga precisa conter ao menos uma
-  palavras_excludentes: [estagio, estagiario, estagiaria, aprendiz]
+  palavras_excludentes: [estagio, estagiario, estagiaria, aprendiz, advogad]   # comparadas com o título; advogad = advogado(a)
   score_minimo: 45             # aderência mínima (0–100) para ir ao e-mail
 
 notificacoes:
