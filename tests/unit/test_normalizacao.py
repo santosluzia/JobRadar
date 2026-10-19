@@ -44,3 +44,12 @@ def test_familia_nao_descarta_titulo_sem_dados_quando_descricao_e_de_engenharia(
     assert n.familia("Engenheiro de Software", {"spark", "airflow", "databricks"}) == (Familia.engenharia_dados, "descricao")
     assert n.familia("Engenheiro de Software", {"python"}) == (Familia.outra, "titulo")
     assert n.familia("Analytics Engineer", set())[0] == Familia.analytics_engineering
+
+
+def test_familia_governanca_so_de_dados():
+    gov = Familia.governanca_qualidade
+    assert n.familia("Analista de Governança de Dados Pleno", set())[0] == gov
+    assert n.familia("Gerente de Governança e Arquitetura de Dados", set())[0] == gov
+    assert n.familia("Analista Qualidade de Dados JR", set())[0] == gov
+    assert n.familia("GOVERNANÇA DE PRIVACIDADE - POA/RS", set())[0] == Familia.outra
+    assert n.familia("Especialista de Governança e Controle Estratégico", set())[0] == Familia.outra

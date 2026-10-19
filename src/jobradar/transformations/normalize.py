@@ -32,7 +32,7 @@ FAMILIA_TITULO = [
     (Familia.analytics_engineering, r"analytics engineer|engenheir[oa] de analytics"),
     (Familia.engenharia_dados, r"engenheir[oa] de (big )?dados|engenharia de dados|data engineer|big data engineer|dataops"),
     (Familia.desenvolvimento_dados, r"desenvolvedor[a]? (de )?(dados|etl|bi)\b|(etl|bi|data) developer"),
-    (Familia.governanca_qualidade, r"governanca|data governance|qualidade de dados|data quality|data steward|integracao de dados|\bmdm\b"),
+    (Familia.governanca_qualidade, r"governanca( e [a-z ]+?)? de dados|data governance|qualidade de dados|data quality|data steward|integracao de dados|\bmdm\b"),
     (Familia.analise_dados, r"analista de (dados|bi)|data analyst|business intelligence|analista de business intelligence"),
 ]
 SKILLS_NUCLEO_ENG = {"spark", "airflow", "etl", "databricks", "dbt", "data_lake", "data_warehouse",
