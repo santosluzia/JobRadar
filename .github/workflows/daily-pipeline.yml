@@ -1,19 +1,17 @@
 name: Pipeline diário
 
-# Três execuções por dia, em turnos (horário de São Paulo, UTC-3, sem horário de verão desde 2019):
-#   manhã 07:00 · tarde 12:00 · noite 17:00.
-# Quem dispara no horário é o cron-job.org, chamando a API (workflow_dispatch com origem=agendador);
-# veja docs/operations.md. O cron do próprio GitHub fica só de reserva: ele não garante o horário
-# e costuma atrasar horas (em 17/10/2026 a execução das 06:47 só começou às 10:12).
-# Reservas: 10:13 UTC = 07:13 SP · 15:13 UTC = 12:13 SP · 20:13 UTC = 17:13 SP.
-# O job "checar" deixa rodar só a primeira execução agendada de cada turno: se já houve uma com
-# sucesso no mesmo turno do mesmo dia, as outras terminam em segundos, sem coletar nem mandar
+# Quatro execuções por dia, uma a cada 6 horas, disparadas pelo cron-job.org via API
+# (workflow_dispatch com origem=agendador); veja docs/operations.md. Com o fuso da tarefa em
+# America/Sao_Paulo os disparos são 00:00, 06:00, 12:00 e 18:00 (UTC-3, sem horário de verão
+# desde 2019). O cron do próprio GitHub fica só de reserva: ele não garante o horário e costuma
+# atrasar horas (em 17/10/2026 a execução das 06:47 só começou às 10:12).
+# Reservas: 03:13, 09:13, 15:13 e 21:13 UTC = 00:13, 06:13, 12:13 e 18:13 em São Paulo.
+# O job "checar" deixa rodar só a primeira execução agendada de cada turno de 6 horas: se já
+# houve uma com sucesso no mesmo turno, as outras terminam em segundos, sem coletar nem mandar
 # e-mail. Se a do cron-job.org falhar ou não chegar, a reserva do GitHub roda quando sair da fila.
 on:
   schedule:
-    - cron: "13 10 * * *"
-    - cron: "13 15 * * *"
-    - cron: "13 20 * * *"
+    - cron: "13 3,9,15,21 * * *"
   workflow_dispatch:
     inputs:
       notificar:
@@ -61,13 +59,17 @@ jobs:
           REPO: ${{ github.repository }}
           RUN: ${{ github.run_id }}
         run: |
-          # Turno pelo horário de criação da execução em São Paulo. Os limites (11:30 e 16:30) ficam
-          # longe dos disparos (07:00, 12:00, 17:00) e cabem as reservas atrasadas do GitHub.
+          # Turnos de 6 horas pelo horário de criação da execução em São Paulo, com os limites 30 min
+          # antes da hora cheia: madrugada 23:30–05:29, manhã 05:30–11:29, tarde 11:30–17:29,
+          # noite 17:30–23:29. Disparos na hora cheia (00, 06, 12, 18 em SP, ou 21, 03, 09, 15 se
+          # a tarefa estiver em UTC) caem sempre um em cada turno, longe dos limites.
+          adiantado() { echo $(( $(date -d "$1" +%s) + 1800 )); }
           turno_de() {
-            local hm; hm=$((10#$(TZ=America/Sao_Paulo date -d "$1" +%H%M)))
-            if [ "$hm" -lt 1130 ]; then echo manha; elif [ "$hm" -lt 1630 ]; then echo tarde; else echo noite; fi
+            case $(( 10#$(TZ=America/Sao_Paulo date -d "@$(adiantado "$1")" +%H) / 6 )) in
+              0) echo madrugada ;; 1) echo manha ;; 2) echo tarde ;; *) echo noite ;;
+            esac
           }
-          dia_de() { TZ=America/Sao_Paulo date -d "$1" +%F; }
+          dia_de() { TZ=America/Sao_Paulo date -d "@$(adiantado "$1")" +%F; }
 
           criada=$(gh api "repos/$REPO/actions/runs/$RUN" --jq .created_at)
           dia=$(dia_de "$criada"); turno=$(turno_de "$criada")
@@ -77,7 +79,7 @@ jobs:
           if [ "$AGENDADA" != "true" ]; then
             echo "rodar=true" >> "$GITHUB_OUTPUT"; echo "pular_vazio=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          # Só a manhã manda e-mail sem vaga nova (alarme de coleta parada); tarde e noite só se houver vaga.
+          # Só a manhã manda e-mail sem vaga nova (alarme de coleta parada); os outros turnos só se houver vaga.
           [ "$turno" = manha ] && echo "pular_vazio=false" >> "$GITHUB_OUTPUT" || echo "pular_vazio=true" >> "$GITHUB_OUTPUT"
 
           # Execuções agendadas concluídas com sucesso (as que terminaram em segundos também contam:

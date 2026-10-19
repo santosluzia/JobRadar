@@ -5,8 +5,8 @@ Seleção (a mesma regra do filtro "Ontem e hoje" da tela de vagas do portfólio
 - encontradas atrasadas: relevantes, vistas pela 1ª vez nesse mesmo período, mas publicadas antes
   (a fonte demorou a mostrar a vaga, ou a empresa entrou agora na coleta). Sem essa seção elas
   nunca seriam enviadas.
-"Ainda não enviada" faz cada turno (07:00, 12:00, 17:00) levar só o que os anteriores não levaram:
-a vaga publicada hoje às 10h entra no e-mail das 12:00 e não volta nos seguintes.
+"Ainda não enviada" faz cada turno (a cada 6 h: 00, 06, 12, 18 em SP) levar só o que os anteriores
+não levaram: a vaga publicada hoje às 10h entra no e-mail das 12:00 e não volta nos seguintes.
 
 Layout: cartões completos para as `cartoes` de maior score do dia; o resto em lista compacta.
 `max_vagas` protege contra o corte do Gmail (~100 KB de HTML); o excedente é avisado no rodapé
