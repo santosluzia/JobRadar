@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O JobRadar é um pipeline em lote, executado três vezes por dia no GitHub Actions (07:00, 12:00 e 17:00 em São Paulo). Ele é dividido em módulos de domínio que não sabem como os dados serão entregues:
+O JobRadar é um pipeline em lote, executado a cada 6 horas no GitHub Actions (00:00, 06:00, 12:00 e 18:00 em São Paulo). Ele é dividido em módulos de domínio que não sabem como os dados serão entregues:
 
 ```
 src/jobradar/

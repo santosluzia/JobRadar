@@ -85,7 +85,7 @@ def cmd_notify(a, s) -> int:
         out.write_text(corpo, encoding="utf-8")
         print(f"{assunto}\n(prévia em {out}; nada enviado nem registrado)")
         return 0
-    # --pular-se-vazio: execuções da tarde e da noite só mandam e-mail se houver vaga nova; o e-mail
+    # --pular-se-vazio: os turnos fora da manhã só mandam e-mail se houver vaga nova; o e-mail
     # vazio da manhã basta como alarme de coleta parada.
     if not vagas and (a.pular_se_vazio or not s.sources.get("notificacoes", {}).get("enviar_quando_vazio", True)):
         print("nenhuma vaga nova para notificar")
