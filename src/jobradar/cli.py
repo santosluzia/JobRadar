@@ -85,7 +85,9 @@ def cmd_notify(a, s) -> int:
         out.write_text(corpo, encoding="utf-8")
         print(f"{assunto}\n(prévia em {out}; nada enviado nem registrado)")
         return 0
-    if not vagas and not s.sources.get("notificacoes", {}).get("enviar_quando_vazio", True):
+    # --pular-se-vazio: execuções da tarde e da noite só mandam e-mail se houver vaga nova; o e-mail
+    # vazio da manhã basta como alarme de coleta parada.
+    if not vagas and (a.pular_se_vazio or not s.sources.get("notificacoes", {}).get("enviar_quando_vazio", True)):
         print("nenhuma vaga nova para notificar")
         _resumo_github("Notificações: 0 (nenhuma vaga nova)")
         return 0
@@ -151,7 +153,7 @@ def main(argv: list[str] | None = None) -> None:
     pb = sub.add_parser("publish"); pb.add_argument("--out", default="public_out"); pb.add_argument("--run-id")
     pb.set_defaults(f=cmd_publish)
     n = sub.add_parser("notify"); n.add_argument("--dry-run", action="store_true"); n.add_argument("--html-out")
-    n.add_argument("--run-id"); n.set_defaults(f=cmd_notify)
+    n.add_argument("--run-id"); n.add_argument("--pular-se-vazio", action="store_true"); n.set_defaults(f=cmd_notify)
     st = sub.add_parser("status"); st.add_argument("-n", type=int, default=10); st.set_defaults(f=cmd_status)
     rc = sub.add_parser("recomendacoes"); rc.add_argument("-n", type=int, default=15); rc.set_defaults(f=cmd_recomendacoes)
     c = sub.add_parser("candidatura"); c.add_argument("job_id"); c.add_argument("status", choices=APPLICATION_STATUSES)

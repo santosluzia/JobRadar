@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O JobRadar é um pipeline em lote, executado uma vez por dia no GitHub Actions. Ele é dividido em módulos de domínio que não sabem como os dados serão entregues:
+O JobRadar é um pipeline em lote, executado três vezes por dia no GitHub Actions (07:00, 12:00 e 17:00 em São Paulo). Ele é dividido em módulos de domínio que não sabem como os dados serão entregues:
 
 ```
 src/jobradar/
@@ -72,7 +72,7 @@ O módulo `storage/` só lê e grava arquivos. Migrar para R2 significa trocar o
 
 ### Por que JSON estático e não uma API
 
-O dashboard público só lê poucos agregados, que mudam uma vez por dia. JSON estático tem custo zero, cache por CDN e nenhuma superfície de ataque. Uma API REST passa a se justificar quando houver ao menos um destes requisitos concretos:
+O dashboard público só lê poucos agregados, que mudam poucas vezes por dia. JSON estático tem custo zero, cache por CDN e nenhuma superfície de ataque. Uma API REST passa a se justificar quando houver ao menos um destes requisitos concretos:
 
 1. uma área pessoal **na web**, com login, para candidaturas ou notas;
 2. consultas filtradas sobre um histórico grande demais para um arquivo;

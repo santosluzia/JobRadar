@@ -1,12 +1,12 @@
-"""Relatório diário por e-mail (HTML + texto), com idempotência por vaga.
+"""Relatório por e-mail (HTML + texto), com idempotência por vaga.
 
 Seleção (a mesma regra do filtro "Ontem e hoje" da tela de vagas do portfólio):
 - do dia: relevantes, publicadas a partir de 00:00 de ontem (São Paulo) e ainda não enviadas;
 - encontradas atrasadas: relevantes, vistas pela 1ª vez nesse mesmo período, mas publicadas antes
   (a fonte demorou a mostrar a vaga, ou a empresa entrou agora na coleta). Sem essa seção elas
   nunca seriam enviadas.
-"Ainda não enviada" cobre o horário do e-mail (06:47): a vaga publicada hoje às 10h é coletada
-amanhã, quando já é "de ontem", e entra uma única vez.
+"Ainda não enviada" faz cada turno (07:00, 12:00, 17:00) levar só o que os anteriores não levaram:
+a vaga publicada hoje às 10h entra no e-mail das 12:00 e não volta nos seguintes.
 
 Layout: cartões completos para as `cartoes` de maior score do dia; o resto em lista compacta.
 `max_vagas` protege contra o corte do Gmail (~100 KB de HTML); o excedente é avisado no rodapé

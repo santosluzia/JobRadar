@@ -69,9 +69,25 @@ def test_envio_que_falha_nao_registra(populado, monkeypatch):
     monkeypatch.setattr("jobradar.notifications.email.enviar_smtp", quebra)
 
     class A:
-        dry_run, html_out, run_id = False, None, "r1"
+        dry_run, html_out, run_id, pular_se_vazio = False, None, "r1", False
     assert cli.cmd_notify(A, populado) == cli.EXIT_NOTIFICACAO
     assert Lake(populado.lake).read("meta/notifications").empty
+
+
+def test_pular_se_vazio_nao_envia_sem_vaga_nova(populado, monkeypatch):
+    from jobradar import cli
+    enviados = []
+    monkeypatch.setattr("jobradar.notifications.enviar_smtp", lambda *a, **k: enviados.append(a))
+    monkeypatch.setattr(cli, "utcnow", lambda: AGORA)
+    registrar(Lake(populado.lake), candidatas(populado, AGORA), "r1", AGORA)
+
+    class A:
+        dry_run, html_out, run_id, pular_se_vazio = False, None, "r2", True
+    assert cli.cmd_notify(A, populado) == 0
+    assert enviados == []
+    A.pular_se_vazio = False
+    assert cli.cmd_notify(A, populado) == 0
+    assert len(enviados) == 1  # sem a flag vale enviar_quando_vazio (true): manda o e-mail vazio
 
 
 def test_email_separa_publicadas_ontem_e_hoje_das_encontradas_atrasadas(populado):
