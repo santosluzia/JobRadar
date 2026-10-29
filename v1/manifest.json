@@ -1,29 +1,29 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-10-29T15:03:07.059560Z",
-  "run_id": "40897139451-1",
+  "generated_at": "2026-10-29T21:03:37.454365Z",
+  "run_id": "40953989975-1",
   "pipeline_version": "1.0.0",
   "files": [
     {
       "dataset": "market-summary",
       "path": "v1/market-summary.json",
-      "sha256": "491b84b7e02c2c6bd1c2ae1cbaf1d97de84630c925a714915efb9225688e6db3",
-      "records": 3733,
+      "sha256": "d211bcd8e4d2979876a547dc59ce1a1a47d7fca4874c3487323fad17090b345f",
+      "records": 3813,
       "bytes": 2674
     },
     {
       "dataset": "skill-trends",
       "path": "v1/skill-trends.json",
-      "sha256": "c120031071143b4effdd962d28571944d7e2352b7ee9b3b3fcb410dbadb91978",
+      "sha256": "ec17e2e8b0919d86ca033e2dec1b93669c87f0b2a8590e62404547bf5606f261",
       "records": 36,
-      "bytes": 27637
+      "bytes": 27636
     },
     {
       "dataset": "jobs",
       "path": "v1/jobs.json",
-      "sha256": "239d92beb569294582bb01b28c35f25bf2983c0b95f0da2ffaa2cdfdbd464577",
-      "records": 285,
-      "bytes": 161444
+      "sha256": "e877411ecc6a3cedd3aabe8132e707b42a90311383df278821501449b7d67bec",
+      "records": 287,
+      "bytes": 162502
     }
   ]
 }
