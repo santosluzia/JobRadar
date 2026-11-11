@@ -45,7 +45,8 @@ def cmd_run(a, s) -> int:
     linhas += [f"| {f.source} | {'✅' if f.ok else '❌ ' + '; '.join(f.erros)[:80]} | {f.coletados} | {f.validos} | "
                f"{f.invalidos} | {f.duplicatas_fonte} | {f.novas} | {f.retentativas} |" for f in rep.fontes]
     linhas += ["", f"Observadas: {rep.observadas} · novas: {rep.novas} · duplicatas entre fontes: "
-               f"{rep.duplicatas_entre_fontes} · requisitos alterados: {rep.requisitos_alterados}"]
+               f"{rep.duplicatas_entre_fontes} · requisitos alterados: {rep.requisitos_alterados} · "
+               f"encerradas (saíram do quadro): {rep.encerradas_fora_do_quadro}"]
     texto = "\n".join(linhas)
     print(texto)
     _resumo_github(texto)

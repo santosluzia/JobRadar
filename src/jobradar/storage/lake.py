@@ -37,15 +37,18 @@ class Lake:
         if not p.exists():
             return schema.empty_table().to_pandas()
         df = pq.read_table(p).to_pandas()
-        for campo in schema.names:  # evolução de schema: coluna nova aparece como nula
+        for campo in schema.names:  # evolução de schema: coluna nova aparece como nula, já no tipo certo
             if campo not in df.columns:
-                df[campo] = None
+                df[campo] = pa.nulls(len(df), schema.field(campo).type).to_pandas()
         return df[schema.names]
 
     def write(self, table: str, df: pd.DataFrame) -> None:
         p = self.path(table)
         p.parent.mkdir(parents=True, exist_ok=True)
         schema = TABLES[table]
+        faltando = [c for c in schema.names if c not in df.columns]
+        df = df.assign(**{c: pa.nulls(len(df), schema.field(c).type).to_pandas().set_axis(df.index)
+                          for c in faltando})
         df = df.reindex(columns=schema.names)
         tabela = pa.Table.from_pandas(df, schema=schema, preserve_index=False, safe=False)
         tmp = p.with_suffix(".parquet.tmp")

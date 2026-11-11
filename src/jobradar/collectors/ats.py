@@ -6,6 +6,12 @@ Ambas devolvem TODAS as vagas da empresa (vendas, jurídico, etc.). Se `titulo_c
 configurado, só ficam as vagas cujo título contém uma dessas palavras (sem acento, palavra inteira);
 o resto é descartado antes da bronze para não inflar o histórico nem diluir as análises de mercado.
 O filtro fino de relevância continua na silver.
+
+Como a resposta é o quadro INTEIRO da empresa, a ausência de uma vaga é evidência de que ela saiu do
+ar (diferente da Gupy e da Adzuna, que são buscas). Cada quadro lido por completo vai para
+`CollectResult.quadros` com os ids de todas as vagas, antes do filtro de título. Não entram:
+quadro com erro, quadro vazio (suspeito: a empresa não fica sem nenhuma vaga de um dia para o outro)
+e, no Greenhouse, quadro cujo `meta.total` não bate com a lista devolvida.
 """
 from __future__ import annotations
 
@@ -24,6 +30,14 @@ def _filtro_titulo(cfg: dict[str, Any]):
         return lambda titulo: True
     padrao = re.compile(r"\b(" + "|".join(re.escape(p) for p in palavras) + r")\b")
     return lambda titulo: bool(padrao.search(normalizar(titulo)))
+
+
+def _registrar_quadro(result: CollectResult, quadro: str, vagas: list[dict[str, Any]],
+                      total_informado: int | None = None) -> None:
+    if not vagas or (total_informado is not None and total_informado != len(vagas)):
+        result.params.setdefault("quadros_incompletos", []).append(quadro)
+        return
+    result.quadros[quadro] = sorted({str(v.get("id")) for v in vagas if v.get("id") is not None})
 
 
 def _aplicar_filtro(cfg: dict[str, Any], todos: list[dict[str, Any]], campo: str,
@@ -45,9 +59,11 @@ class GreenhouseCollector(Collector):
         for token in empresas:
             try:
                 corpo = self._get(self.URL.format(token=token), {"content": "true"}, result).json()
-                for job in corpo.get("jobs", []):
+                vagas = corpo.get("jobs", [])
+                for job in vagas:
                     job["_board"] = token
                     todos.append(job)
+                _registrar_quadro(result, token, vagas, (corpo.get("meta") or {}).get("total"))
             except (SourceError, ValueError) as e:
                 result.errors.append(f"{token}: {e}")
             self._sleep()
@@ -66,6 +82,7 @@ class GreenhouseCollector(Collector):
             modality_raw="remoto" if local and "remot" in local.lower() else None,
             published_at=r.get("first_published") or r.get("updated_at"),
             description=html_para_texto(r.get("content")),
+            board=r.get("_board"),
             extra={"board": r.get("_board")},
         )
 
@@ -81,9 +98,11 @@ class LeverCollector(Collector):
         todos = []
         for empresa in empresas:
             try:
-                for job in self._get(self.URL.format(empresa=empresa), {"mode": "json"}, result).json():
+                vagas = self._get(self.URL.format(empresa=empresa), {"mode": "json"}, result).json()
+                for job in vagas:
                     job["_empresa"] = empresa
                     todos.append(job)
+                _registrar_quadro(result, empresa, vagas)
             except (SourceError, ValueError) as e:
                 result.errors.append(f"{empresa}: {e}")
             self._sleep()
@@ -103,5 +122,6 @@ class LeverCollector(Collector):
             modality_raw=self.MODALIDADE.get(r.get("workplaceType") or ""),
             published_at=datetime.fromtimestamp(criado / 1000, tz=timezone.utc) if criado else None,
             description=r.get("descriptionPlain") or html_para_texto(r.get("description")),
+            board=r.get("_empresa"),
             extra={"team": cat.get("team"), "commitment": cat.get("commitment")},
         )

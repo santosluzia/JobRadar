@@ -54,6 +54,7 @@ class RunReport:
     novas: int = 0
     duplicatas_entre_fontes: int = 0
     requisitos_alterados: int = 0
+    encerradas_fora_do_quadro: int = 0   # saíram do quadro da empresa no ATS nesta execução
     meses_recalculados: list[str] = field(default_factory=list)
     vagas_pontuadas: int = 0
     bronze_particoes_removidas: int = 0
@@ -81,6 +82,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     linhas: list[dict] = []
     skills_lote: dict[str, list[SkillMatch]] = {}
     problemas: list[dict] = []
+    quadros: dict[str, dict[str, list[str]]] = {}   # fonte → quadro lido por inteiro → ids listados
     for coletor in collectors:
         ts = time.monotonic()
         try:
@@ -93,7 +95,10 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
             "run_id": run_id, "source": coletor.name, "ingested_at": agora.isoformat(),
             "params": res.params, "requests": res.requests, "retries": res.retries,
             "errors": res.errors, "record_count": len(res.records), "records": res.records,
+            "quadros": res.quadros,
         })
+        if res.quadros:
+            quadros[coletor.name] = res.quadros
         m = SourceMetrics(coletor.name, ok=res.ok, coletados=len(res.records),
                           duplicatas_fonte=res.duplicates_in_source, requisicoes=res.requests,
                           retentativas=res.retries, erros=res.errors)
@@ -148,6 +153,8 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
         l_idx.loc[repetidos, "primeira_observacao"] = j_idx.loc[repetidos, "primeira_observacao"]
     partes = [p for p in (j_idx.drop(index=repetidos), l_idx) if not p.empty]
     jobs = pd.concat(partes).reset_index() if partes else jobs
+    jobs["encerrada_em"] = pd.to_datetime(jobs["encerrada_em"], utc=True)  # só nulos viraria float
+    report.encerradas_fora_do_quadro = _encerrar_fora_do_quadro(jobs, quadros, agora)
     jobs = _status(jobs, agora, s.retencao)
     jobs = _canonicas(jobs)
     report.duplicatas_entre_fontes = int((~jobs["is_canonica"] & jobs["job_id"].isin(ids_lote)).sum())
@@ -200,23 +207,41 @@ def _problema(run_id, source, rec, campo, problema, detalhe, agora) -> dict:
             "campo": campo, "problema": problema, "detalhe": detalhe[:300], "registrado_em": agora}
 
 
+def _encerrar_fora_do_quadro(jobs: pd.DataFrame, quadros: dict[str, dict[str, list[str]]],
+                             agora: datetime) -> int:
+    """Greenhouse e Lever devolvem o quadro INTEIRO da empresa: se o quadro foi lido por completo
+    nesta execução e a vaga não está nele, ela saiu do ar. Marca `encerrada_em` (só na primeira vez).
+    Vaga sem `quadro` (gravada antes desta regra) ou de quadro que falhou/saiu da config fica como está.
+    Se a vaga voltar ao quadro, a linha nova chega com `encerrada_em` nulo e ela volta a ser ativa."""
+    total = 0
+    for fonte, por_quadro in quadros.items():
+        for quadro, ids in por_quadro.items():
+            fora = (jobs["source"] == fonte) & (jobs["quadro"] == quadro) & jobs["encerrada_em"].isna()                 & ~jobs["source_job_id"].astype(str).isin(set(ids))
+            jobs.loc[fora, "encerrada_em"] = agora
+            total += int(fora.sum())
+    return total
+
+
 def _status(jobs: pd.DataFrame, agora: datetime, ret: dict) -> pd.DataFrame:
     """Regra de expiração (docs/architecture.md):
-    encerrada  → prazo de inscrição informado pela fonte já passou (evidência explícita);
+    encerrada  → evidência explícita: a vaga saiu do quadro da empresa no ATS (Greenhouse/Lever)
+                 ou o prazo de inscrição informado pela fonte já passou;
     ativa      → observada nos últimos N dias;
-    desconhecida → sem observação há mais de N dias. Sumir de uma coleta não encerra a vaga.
+    desconhecida → sem observação há mais de N dias. Sumir de uma BUSCA (Gupy, Adzuna) não encerra a vaga.
     """
     dias = int(ret.get("status_desconhecido_apos_dias", 14))
     prazo = pd.to_datetime(jobs["prazo_em"], utc=True)
     visto = pd.to_datetime(jobs["ultima_observacao"], utc=True)
-    encerrada = prazo.notna() & (prazo < agora)
+    saiu_do_quadro = pd.to_datetime(jobs["encerrada_em"], utc=True).notna()
+    prazo_vencido = prazo.notna() & (prazo < agora)
     recente = (agora - visto) <= pd.Timedelta(days=dias)
     jobs["status"] = "desconhecida"
     jobs.loc[recente, "status"] = "ativa"
-    jobs.loc[encerrada, "status"] = "encerrada"
+    jobs.loc[saiu_do_quadro | prazo_vencido, "status"] = "encerrada"
     jobs["motivo_status"] = f"nao_observada_ha_mais_de_{dias}_dias"
     jobs.loc[recente, "motivo_status"] = f"observada_nos_ultimos_{dias}_dias"
-    jobs.loc[encerrada, "motivo_status"] = "prazo_de_inscricao_vencido"
+    jobs.loc[saiu_do_quadro, "motivo_status"] = "saiu_do_quadro_da_empresa"
+    jobs.loc[prazo_vencido, "motivo_status"] = "prazo_de_inscricao_vencido"
     return jobs
 
 

@@ -44,9 +44,19 @@ Se **todas** as fontes falharem, a silver e a gold não são alteradas. Só a ex
 |---|---|
 | `ativa` | Observada nos últimos `status_desconhecido_apos_dias` (padrão 14) |
 | `desconhecida` | Sem observação há mais tempo e sem evidência de encerramento |
-| `encerrada` | A fonte informou prazo de inscrição (`applicationDeadline`) e ele já passou |
+| `encerrada` | Evidência explícita: a vaga **saiu do quadro da empresa** no Greenhouse/Lever (`saiu_do_quadro_da_empresa`) ou a fonte informou prazo de inscrição (`applicationDeadline`) e ele já passou (`prazo_de_inscricao_vencido`) |
 
-Uma vaga pode deixar de aparecer porque saiu do top N da busca, porque o termo mudou ou porque a fonte ficou fora do ar. Por isso a ausência nunca é tratada como encerramento.
+Na Gupy e na Adzuna, que são **buscas**, uma vaga pode deixar de aparecer porque saiu do top N, porque o termo mudou ou porque a fonte ficou fora do ar. Por isso, nelas, a ausência nunca é tratada como encerramento.
+
+O Greenhouse e o Lever são diferentes: cada chamada devolve o **quadro inteiro** da empresa. Então, se o quadro foi lido por completo e a vaga não está nele, ela saiu do ar. A regra:
+
+- o coletor registra, por quadro, os ids de **todas** as vagas listadas, antes do filtro de título (uma vaga que só deixou de passar no filtro continua no quadro e não é encerrada);
+- não servem de evidência: quadro com erro, quadro vazio (suspeito) e, no Greenhouse, quadro cujo `meta.total` não bate com a lista devolvida (`quadros_incompletos` na bronze);
+- a vaga ausente recebe `encerrada_em` na primeira execução em que faltou, e a data não muda nas execuções seguintes;
+- só vale para vagas cujo `quadro` foi lido nesta execução: empresa retirada da configuração não encerra nada, e vagas gravadas antes desta regra (sem `quadro`) seguem a regra de 14 dias;
+- se a vaga voltar ao quadro, a nova observação zera `encerrada_em` e ela volta a ser `ativa`.
+
+Com `encerrada_em` dá para medir quanto tempo cada vaga ficou aberta (`encerrada_em − primeira_observacao`), por empresa.
 
 ## Persistência
 
