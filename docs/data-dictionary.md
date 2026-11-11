@@ -42,7 +42,7 @@ erDiagram
 | encerrada_em | timestamp | Primeira execução em que o quadro foi lido por completo sem a vaga; nulo se ela continua (ou voltou) no quadro |
 | descricao / descricao_hash | string | Texto plano (máx. 20 mil caracteres; apagado após a retenção) / sha1 |
 | chave_alternativa | string | sha1(empresa, título sem ruído, UF), usada para deduplicar entre fontes |
-| canonical_job_id / is_canonica | string / bool | Vaga eleita como representante do grupo de duplicatas |
+| canonical_job_id / is_canonica | string / bool | Vaga eleita como representante do grupo de duplicatas (entre fontes ou republicação na mesma fonte) |
 | atualizado_em | timestamp | Última escrita da linha |
 
 ## silver/job_skills

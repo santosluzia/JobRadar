@@ -34,7 +34,7 @@ Tudo acontece no **GitHub Actions**, quatro vezes por dia, sem servidor e sem cu
    Os termos de busca e as empresas ficam em [`config/sources.yaml`](config/sources.yaml).
 3. **Bronze.** A resposta bruta de cada fonte é guardada como está (JSON compactado por fonte e dia), para poder reprocessar.
 4. **Silver.** As vagas viram um schema canônico validado com Pydantic. Nesta camada o pipeline:
-   - remove duplicatas por id, URL canônica e chave alternativa entre fontes;
+   - remove duplicatas por id, URL canônica, chave alternativa entre fontes e republicação do mesmo anúncio com outro id;
    - registra cada observação e as mudanças de requisitos;
    - classifica a situação de cada vaga como ativa, desconhecida ou encerrada.
 5. **Competências e aderência.** Regras configuráveis ([`config/skills.yaml`](config/skills.yaml)) extraem as competências e as separam em requisito ou desejável. Também inferem senioridade e modalidade. Um score explicável compara cada vaga com o perfil privado.
@@ -86,7 +86,7 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 | Coleta Adzuna (API oficial) | ✅ depende de `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` |
 | Coleta Greenhouse (12 empresas) e Lever (CI&T), com filtro por título | ✅ |
 | Bronze / Silver / Gold incrementais em Parquet + DuckDB | ✅ |
-| Deduplicação por id, URL canônica e chave alternativa entre fontes | ✅ |
+| Deduplicação por id, URL canônica, chave alternativa entre fontes e republicações | ✅ |
 | Histórico de observações e mudanças de requisitos | ✅ |
 | Status ativa / desconhecida / encerrada com regra documentada | ✅ encerra quando a vaga sai do quadro da empresa no Greenhouse/Lever |
 | Extração de competências (requisito × desejável) | ✅ heurística configurável |
@@ -111,7 +111,7 @@ cp .env.example .env                                       # JOBRADAR_LAKE=../jo
 
 cp config/profile.example.yaml ../jobradar-data/private/profile.yaml   # preencha seu perfil
 
-pytest -q                                   # 75 testes, sem acesso à internet
+pytest -q                                   # 78 testes, sem acesso à internet
 jobradar run                                # coleta + bronze/silver/gold
 jobradar publish --out public_out           # gera e valida o contrato v1
 jobradar notify --dry-run                   # prévia do e-mail em jobradar-email.html

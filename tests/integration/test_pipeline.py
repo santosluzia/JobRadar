@@ -163,3 +163,46 @@ def test_vaga_gravada_antes_da_regra_sem_quadro_nao_e_encerrada(settings, fake):
     rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA + timedelta(hours=6))
     jobs = lake.read("silver/jobs").set_index("source_job_id")
     assert rep.encerradas_fora_do_quadro == 0 and jobs.loc["9001", "status"] == "ativa"
+
+
+def _adzuna(id_, empresa=None, descricao="Requisitos: SQL, Python e Spark.", criado="2026-10-15T22:00:00Z"):
+    return {"id": id_, "title": "Analista de Dados Sênior", "company": {"display_name": empresa} if empresa else {},
+            "location": {"display_name": "São Paulo, Estado de São Paulo", "area": ["Brasil", "São Paulo"]},
+            "redirect_url": f"https://www.adzuna.com.br/details/{id_}", "created": criado, "description": descricao}
+
+
+def test_republicacao_no_agregador_sem_empresa_nao_conta_como_nova(settings, fake):
+    fake.adzuna = adzuna_jobs() + [_adzuna("r1")]
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    # Dia seguinte: o mesmo anúncio volta com outro id e outra data; e um anúncio diferente de outra empresa.
+    fake.adzuna = adzuna_jobs() + [_adzuna("r2", criado="2026-10-16T22:00:00Z"),
+                                   _adzuna("x1", empresa="Outra", criado="2026-10-16T22:00:00Z")]
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA + timedelta(days=1))
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert not jobs.loc["r2", "is_canonica"] and jobs.loc["r2", "canonical_job_id"] == jobs.loc["r1", "job_id"]
+    assert jobs.loc["r1", "is_canonica"] and jobs.loc["x1", "is_canonica"]
+    adz = next(f for f in rep.fontes if f.source == "adzuna")
+    assert rep.novas == 1 and adz.novas == 1                     # só a x1 é nova de verdade
+    assert len(jobs) == 10                                        # nada é apagado
+
+
+def test_mesmo_texto_em_empresas_diferentes_nao_e_republicacao(settings, fake):
+    fake.adzuna = [_adzuna("e1", empresa="Consultoria A"), _adzuna("e2", empresa="Consultoria B")]
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert jobs.loc["e1", "is_canonica"] and jobs.loc["e2", "is_canonica"]
+
+
+def test_vaga_que_vira_republicacao_recalcula_o_mes_dela_na_gold(settings, fake):
+    """Histórico gravado antes da regra: a cópia era canônica e inflava o agregado do mês."""
+    fake.adzuna = [_adzuna("r1"), _adzuna("r2", criado="2026-10-16T22:00:00Z")]
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    lake = Lake(settings.lake)
+    jobs = lake.read("silver/jobs")
+    jobs["is_canonica"] = True                                   # como o lake estava antes desta regra
+    lake.write("silver/jobs", jobs)
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA + timedelta(hours=6))
+    assert rep.meses_recalculados == ["2026-10"]
+    gold = lake.read("gold/skill_monthly")
+    total = gold[(gold["skill_id"] == "__total__") & (gold["familia"] == "analise_dados")]["total_vagas"].sum()
+    assert total == 1

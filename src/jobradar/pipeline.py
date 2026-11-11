@@ -23,6 +23,7 @@ from .settings import Settings
 from .storage import Lake, utcnow
 from .transformations.silver import PREFERENCIA_FONTE, canonizar
 from .transformations.skills import SkillMatch, Taxonomy
+from .transformations.text import normalizar
 
 log = logging.getLogger("jobradar.pipeline")
 FUSO = ZoneInfo("America/Sao_Paulo")
@@ -142,9 +143,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     ids_lote = set(lote["job_id"])
     conhecidos = set(jobs["job_id"])
     novos = ids_lote - conhecidos
-    report.observadas, report.novas = len(ids_lote), len(novos)
-    for f in report.fontes:
-        f.novas = int(lote.loc[lote["job_id"].isin(novos) & (lote["source"] == f.source)].shape[0])
+    canonicas_antes = jobs.set_index("job_id")["is_canonica"]
 
     j_idx = jobs.set_index("job_id")
     l_idx = lote.set_index("job_id")
@@ -160,6 +159,16 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     jobs = _status(jobs, agora, s.retencao)
     jobs = _canonicas(jobs)
     report.duplicatas_entre_fontes = int((~jobs["is_canonica"] & jobs["job_id"].isin(ids_lote)).sum())
+    # "Novas" = vagas que não existiam: id novo E canônica. Republicação ou cópia de outra fonte não conta.
+    novas_canonicas = jobs[jobs["job_id"].isin(novos) & jobs["is_canonica"]]
+    report.observadas, report.novas = len(ids_lote), len(novas_canonicas)
+    for f in report.fontes:
+        f.novas = int((novas_canonicas["source"] == f.source).sum())
+    # Vagas já conhecidas que mudaram de canônica para duplicata (ou o contrário) mudam a gold do mês delas.
+    depois = jobs.set_index("job_id")["is_canonica"]
+    comuns = canonicas_antes.index.intersection(depois.index)
+    trocaram = set(comuns[canonicas_antes.loc[comuns].fillna(False).astype(bool)
+                          != depois.loc[comuns].astype(bool)])
 
     # Retenção: descrição some depois de N dias sem observação (hash e competências ficam).
     limite_desc = agora - timedelta(days=int(s.retencao.get("descricao_dias_apos_ultima_observacao", 180)))
@@ -195,7 +204,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     lake.append("silver/observations", pd.DataFrame(observacoes))
 
     # ---------------- gold ----------------
-    report.meses_recalculados = _skill_monthly(lake, jobs, skills, novos | alterados)
+    report.meses_recalculados = _skill_monthly(lake, jobs, skills, novos | alterados | trocaram)
     report.vagas_pontuadas = _scores(lake, s, jobs, skills, ids_lote, agora)
 
     report.bronze_particoes_removidas = lake.prune_bronze(dia, int(s.retencao.get("bronze_dias", 90)))
@@ -248,12 +257,32 @@ def _status(jobs: pd.DataFrame, agora: datetime, ret: dict) -> pd.DataFrame:
 
 
 def _canonicas(jobs: pd.DataFrame) -> pd.DataFrame:
-    """Mesma vaga em fontes diferentes: elege uma canônica (ATS direto > agregador)."""
+    """Elege uma vaga canônica por grupo de duplicatas (ATS direto > agregador; depois a mais antiga).
+
+    Duas vagas são a mesma quando batem em QUALQUER uma das chaves (e o grupo é transitivo):
+    - chave alternativa: empresa + título sem ruído + UF, entre fontes;
+    - republicação: mesma fonte + mesma empresa (ou ambas sem empresa) + mesmo título + mesma UF +
+      mesma descrição. Pega o agregador que republica o anúncio com outro id e outra data, inclusive
+      sem empresa (aí não há chave alternativa). Empresas diferentes com o mesmo texto não se juntam.
+    Nada é apagado: as demais ficam `is_canonica = false`.
+    """
     jobs = jobs.copy()
     jobs["_pref"] = jobs["source"].map(PREFERENCIA_FONTE).fillna(5)
-    jobs = jobs.sort_values(["_pref", "primeira_observacao", "job_id"])
-    chave = jobs["chave_alternativa"].fillna(jobs["job_id"])
-    jobs["canonical_job_id"] = jobs.groupby(chave)["job_id"].transform("first")
+    jobs = jobs.sort_values(["_pref", "primeira_observacao", "job_id"]).reset_index(drop=True)
+    republicacao = (jobs["source"] + "|" + jobs["empresa"].fillna("").map(normalizar) + "|"
+                    + jobs["titulo_norm"].fillna("") + "|" + jobs["uf"].fillna("") + "|"
+                    + jobs["descricao_hash"]).where(jobs["descricao_hash"].notna())
+    # Componentes conexos: cada vaga aponta para a posição da primeira (na ordem de preferência) do
+    # grupo; repete até estabilizar, porque A~B por uma chave e B~C pela outra também juntam A e C.
+    grupo = pd.Series(range(len(jobs)), dtype="int64")
+    while True:
+        novo = grupo
+        for chave in (jobs["chave_alternativa"], republicacao):
+            novo = novo.groupby(chave).transform("min").fillna(novo).astype("int64")
+        if novo.equals(grupo):
+            break
+        grupo = novo
+    jobs["canonical_job_id"] = jobs["job_id"].to_numpy()[grupo.to_numpy()]
     jobs["is_canonica"] = jobs["canonical_job_id"] == jobs["job_id"]
     return jobs.drop(columns="_pref").sort_values("primeira_observacao").reset_index(drop=True)
 
@@ -262,9 +291,10 @@ def _skill_monthly(lake: Lake, jobs: pd.DataFrame, skills: pd.DataFrame, afetado
     """Agregado mensal incremental: só recalcula meses de vagas novas ou com requisitos alterados.
     Mês = mês da primeira observação (coorte de vagas observadas), no fuso de São Paulo."""
     atual = lake.read("gold/skill_monthly")
-    base = jobs[jobs["is_canonica"]].copy()
-    base["mes"] = pd.to_datetime(base["primeira_observacao"], utc=True).dt.tz_convert(FUSO).dt.strftime("%Y-%m")
-    meses = sorted(set(base["mes"])) if atual.empty else sorted(set(base.loc[base["job_id"].isin(afetados), "mes"]))
+    mes = pd.to_datetime(jobs["primeira_observacao"], utc=True).dt.tz_convert(FUSO).dt.strftime("%Y-%m")
+    base = jobs.assign(mes=mes)[jobs["is_canonica"]]
+    # Afetada pode ter deixado de ser canônica: o mês dela é procurado em todas as vagas.
+    meses = sorted(set(base["mes"])) if atual.empty else sorted(set(mes[jobs["job_id"].isin(afetados)]))
     if not meses:
         return []
     con = duckdb.connect()
