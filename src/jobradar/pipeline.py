@@ -153,7 +153,9 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
         l_idx.loc[repetidos, "primeira_observacao"] = j_idx.loc[repetidos, "primeira_observacao"]
     partes = [p for p in (j_idx.drop(index=repetidos), l_idx) if not p.empty]
     jobs = pd.concat(partes).reset_index() if partes else jobs
-    jobs["encerrada_em"] = pd.to_datetime(jobs["encerrada_em"], utc=True)  # só nulos viraria float
+    # Microssegundos, como no schema: com a coluna toda nula o pandas 3.1 infere segundos e depois
+    # recusa gravar `agora` (que tem microssegundos) nela.
+    jobs["encerrada_em"] = pd.to_datetime(jobs["encerrada_em"], utc=True).dt.as_unit("us")
     report.encerradas_fora_do_quadro = _encerrar_fora_do_quadro(jobs, quadros, agora)
     jobs = _status(jobs, agora, s.retencao)
     jobs = _canonicas(jobs)

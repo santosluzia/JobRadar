@@ -120,7 +120,7 @@ def test_vaga_que_sai_do_quadro_do_ats_e_encerrada_e_volta_se_reaparecer(setting
     # O quadro da Acme continua no ar, com outra vaga (fora do filtro de dados), mas sem a 9001.
     fake.greenhouse = {"jobs": [_vaga_greenhouse(9002, "Executivo de Vendas")]}
     fake.gupy = [j for j in gupy_jobs() if j["id"] != 102]  # some de uma BUSCA: não encerra
-    depois = AGORA + timedelta(hours=6)
+    depois = AGORA + timedelta(hours=6, microseconds=478846)  # produção tem microssegundos
     rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=depois)
     jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
     assert rep.encerradas_fora_do_quadro == 1
