@@ -29,7 +29,7 @@ src/jobradar/
 3. **Silver.** Cada registro vira `RawJob`, validado pelo Pydantic; registros inválidos vão para `silver/quality_issues`. Depois é normalizado: senioridade, modalidade, UF e família do cargo, cada um com a **origem** registrada em `origem_campos` (`fonte`, `titulo`, `descricao` ou `nao_informada`). Em seguida:
    - **merge incremental** com `silver/jobs`: vaga conhecida atualiza `ultima_observacao` e preserva `primeira_observacao`;
    - **observação** por vaga e execução em `silver/observations`, registrando competências adicionadas ou removidas quando os requisitos mudam;
-   - **deduplicação entre fontes** pela chave alternativa (empresa + título sem ruído + UF): uma vaga é eleita canônica (ATS direto > agregador) e as demais ficam marcadas `is_canonica = false`. Nada é apagado;
+   - **deduplicação**: duas vagas são a mesma quando batem na **chave alternativa** (empresa + título sem ruído + UF, entre fontes) ou na **chave de republicação** (mesma fonte + mesma empresa, ou ambas sem empresa + mesmo título + mesma UF + mesma descrição). A segunda pega o agregador que republica o anúncio com outro id e outra data, inclusive sem empresa, caso em que não há chave alternativa. Os grupos são transitivos. Uma vaga é eleita canônica (ATS direto > agregador; depois a mais antiga) e as demais ficam marcadas `is_canonica = false`. Nada é apagado. "Novas" no relatório da execução são só as canônicas de id novo;
    - **status** recalculado (regra abaixo) e **retenção** de descrições aplicada.
 4. **Gold.**
    - `gold/skill_monthly` é recalculado **só para os meses afetados**: meses de vagas novas ou com requisitos alterados.
