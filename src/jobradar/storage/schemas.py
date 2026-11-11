@@ -14,7 +14,7 @@ TABLES: dict[str, pa.Schema] = {
         ("local_raw", S), ("modalidade", S), ("senioridade", S), ("familia", S),
         ("origem_campos", S), ("publicada_em", TS), ("prazo_em", TS),
         ("primeira_observacao", TS), ("ultima_observacao", TS), ("ultima_execucao", S),
-        ("status", S), ("motivo_status", S), ("descricao", S), ("descricao_hash", S),
+        ("status", S), ("motivo_status", S), ("quadro", S), ("encerrada_em", TS), ("descricao", S), ("descricao_hash", S),
         ("chave_alternativa", S), ("canonical_job_id", S), ("is_canonica", pa.bool_()),
         ("atualizado_em", TS),
     ]),

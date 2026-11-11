@@ -88,7 +88,7 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 | Bronze / Silver / Gold incrementais em Parquet + DuckDB | ✅ |
 | Deduplicação por id, URL canônica e chave alternativa entre fontes | ✅ |
 | Histórico de observações e mudanças de requisitos | ✅ |
-| Status ativa / desconhecida / encerrada com regra documentada | ✅ |
+| Status ativa / desconhecida / encerrada com regra documentada | ✅ encerra quando a vaga sai do quadro da empresa no Greenhouse/Lever |
 | Extração de competências (requisito × desejável) | ✅ heurística configurável |
 | Score de aderência explicável e recomendações de estudo | ✅ privados |
 | Contrato público v1 validado (JSON Schema) | ✅ |
@@ -111,7 +111,7 @@ cp .env.example .env                                       # JOBRADAR_LAKE=../jo
 
 cp config/profile.example.yaml ../jobradar-data/private/profile.yaml   # preencha seu perfil
 
-pytest -q                                   # 66 testes, sem acesso à internet
+pytest -q                                   # 75 testes, sem acesso à internet
 jobradar run                                # coleta + bronze/silver/gold
 jobradar publish --out public_out           # gera e valida o contrato v1
 jobradar notify --dry-run                   # prévia do e-mail em jobradar-email.html
@@ -142,7 +142,7 @@ Variáveis de ambiente: veja [`.env.example`](.env.example). O setup do GitHub (
 
 - **A amostra não é o mercado.** Os números refletem as fontes e os termos configurados. Mudanças de fonte ou de volume alteram proporções; por isso toda análise mostra o `n` e sinaliza amostras pequenas.
 - **Extração por regras.** Competências e senioridade vêm de padrões de texto. A separação requisito/desejável é heurística.
-- **Status de vaga.** Sumir de uma coleta não encerra a vaga: ela vira "desconhecida" depois de 14 dias sem observação. Só é "encerrada" com evidência (prazo vencido informado pela fonte).
+- **Status de vaga.** Sumir de uma busca (Gupy, Adzuna) não encerra a vaga: ela vira "desconhecida" depois de 14 dias sem observação. Só é "encerrada" com evidência: prazo vencido informado pela fonte, ou a vaga saiu do quadro completo da empresa no Greenhouse/Lever.
 - **Score não é probabilidade.** Ele mede compatibilidade com o perfil declarado. "Sem evidência" significa que a competência não está registrada no perfil, não que a pessoa não a tenha.
 - **Gupy.** O endpoint usado pelo portal público não é uma API documentada. Pode mudar sem aviso; o coletor detecta mudança de formato e a execução registra a falha.
 - **Horário.** O disparo depende do cron-job.org e de um token do GitHub com validade. Se ele falhar, as reservas do GitHub cobrem o turno, mas com horas de atraso.

@@ -36,7 +36,7 @@ class Familia(str, Enum):
 class JobStatus(str, Enum):
     ativa = "ativa"                # vista na última coleta bem-sucedida da fonte
     desconhecida = "desconhecida"  # não vista recentemente, sem evidência de encerramento
-    encerrada = "encerrada"        # evidência explícita (prazo de inscrição vencido)
+    encerrada = "encerrada"        # evidência explícita: prazo vencido ou saiu do quadro da empresa no ATS
 
 
 APPLICATION_STATUSES = [
@@ -60,6 +60,7 @@ class RawJob(BaseModel):
     published_at: datetime | None = None
     deadline_at: datetime | None = None
     description: str | None = None    # texto plano (HTML já removido pelo coletor)
+    board: str | None = None          # quadro da empresa no ATS (Greenhouse/Lever), lido por inteiro
     extra: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("url")

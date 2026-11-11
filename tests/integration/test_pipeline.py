@@ -2,6 +2,7 @@
 from datetime import timedelta
 
 import pandas as pd
+import pyarrow.parquet as pq
 
 from jobradar import pipeline
 from jobradar.storage import Lake
@@ -106,3 +107,59 @@ def test_retencao_da_bronze(settings, fake):
     rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA)
     assert rep.bronze_particoes_removidas == 3
     assert not list(settings.lake.glob("bronze/*/*/run=r1.json.gz"))
+
+
+def _vaga_greenhouse(id_, titulo="Data Engineer"):
+    return {"id": id_, "title": titulo, "absolute_url": f"https://boards.greenhouse.io/acme/jobs/{id_}",
+            "location": {"name": "Remote - Brazil"}, "updated_at": "2026-10-15T00:00:00Z",
+            "company_name": "Acme", "content": "Python e SQL"}
+
+
+def test_vaga_que_sai_do_quadro_do_ats_e_encerrada_e_volta_se_reaparecer(settings, fake):
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    # O quadro da Acme continua no ar, com outra vaga (fora do filtro de dados), mas sem a 9001.
+    fake.greenhouse = {"jobs": [_vaga_greenhouse(9002, "Executivo de Vendas")]}
+    fake.gupy = [j for j in gupy_jobs() if j["id"] != 102]  # some de uma BUSCA: não encerra
+    depois = AGORA + timedelta(hours=6)
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=depois)
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert rep.encerradas_fora_do_quadro == 1
+    assert jobs.loc["9001", "status"] == "encerrada"
+    assert jobs.loc["9001", "motivo_status"] == "saiu_do_quadro_da_empresa"
+    assert pd.Timestamp(jobs.loc["9001", "encerrada_em"]) == depois
+    assert jobs.loc["9001", "quadro"] == "acme"
+    assert jobs.loc["102", "status"] == "ativa"
+
+    # Execução seguinte sem a vaga: não conta de novo nem muda a data de encerramento.
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r3", agora=depois + timedelta(hours=6))
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert rep.encerradas_fora_do_quadro == 0 and pd.Timestamp(jobs.loc["9001", "encerrada_em"]) == depois
+
+    # A vaga voltou ao quadro: reabre.
+    fake.greenhouse = {"jobs": [_vaga_greenhouse(9001), _vaga_greenhouse(9002, "Executivo de Vendas")]}
+    pipeline.run(settings, fake.collectors(settings), run_id="r4", agora=depois + timedelta(hours=12))
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert jobs.loc["9001", "status"] == "ativa" and pd.isna(jobs.loc["9001", "encerrada_em"])
+
+
+def test_quadro_fora_do_ar_ou_vazio_nao_encerra_vagas(settings, fake):
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    fake.falhar = {"greenhouse"}
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA + timedelta(hours=6))
+    assert rep.encerradas_fora_do_quadro == 0
+    fake.falhar = set()
+    fake.greenhouse = {"jobs": []}
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r3", agora=AGORA + timedelta(hours=12))
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert rep.encerradas_fora_do_quadro == 0 and jobs.loc["9001", "status"] == "ativa"
+
+
+def test_vaga_gravada_antes_da_regra_sem_quadro_nao_e_encerrada(settings, fake):
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    lake = Lake(settings.lake)
+    p = lake.path("silver/jobs")  # lake de antes da mudança: parquet sem as colunas novas
+    pq.write_table(pq.read_table(p).drop(["quadro", "encerrada_em"]), p)
+    fake.greenhouse = {"jobs": [_vaga_greenhouse(9002, "Executivo de Vendas")]}
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA + timedelta(hours=6))
+    jobs = lake.read("silver/jobs").set_index("source_job_id")
+    assert rep.encerradas_fora_do_quadro == 0 and jobs.loc["9001", "status"] == "ativa"

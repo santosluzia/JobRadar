@@ -38,6 +38,8 @@ erDiagram
 | primeira_observacao / ultima_observacao | timestamp | Primeira e última vez que o pipeline viu a vaga |
 | ultima_execucao | string | run_id da última observação |
 | status / motivo_status | enum / string | ativa · desconhecida · encerrada, com o motivo (ver architecture.md) |
+| quadro | string | Quadro da empresa no ATS (token do Greenhouse ou empresa no Lever); nulo nas buscas (Gupy, Adzuna) |
+| encerrada_em | timestamp | Primeira execução em que o quadro foi lido por completo sem a vaga; nulo se ela continua (ou voltou) no quadro |
 | descricao / descricao_hash | string | Texto plano (máx. 20 mil caracteres; apagado após a retenção) / sha1 |
 | chave_alternativa | string | sha1(empresa, título sem ruído, UF), usada para deduplicar entre fontes |
 | canonical_job_id / is_canonica | string / bool | Vaga eleita como representante do grupo de duplicatas |

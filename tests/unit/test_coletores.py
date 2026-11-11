@@ -81,3 +81,32 @@ def test_greenhouse_e_lever_filtram_por_titulo_antes_da_bronze():
     sem_filtro = GreenhouseCollector({"empresas": ["x"]}, client=cliente)
     sem_filtro.pause = 0
     assert len(sem_filtro.collect([]).records) == 4
+
+
+def test_quadro_completo_registra_todos_os_ids_antes_do_filtro_de_titulo():
+    gh = {"jobs": [{"id": 1, "title": "Engenheira de Dados"}, {"id": 2, "title": "Executivo de Vendas"}],
+          "meta": {"total": 2}}
+    lv = [{"id": "a", "text": "Data Developer"}, {"id": "b", "text": "Advogado(a)"}]
+
+    def h(req):
+        return httpx.Response(200, json=gh if "greenhouse" in req.url.host else lv)
+    cliente = httpx.Client(transport=httpx.MockTransport(h))
+    g = GreenhouseCollector({"empresas": ["x"], "titulo_contem": ["dados", "data"]}, client=cliente)
+    v = LeverCollector({"empresas": ["y"], "titulo_contem": ["dados", "data"]}, client=cliente)
+    g.pause = v.pause = 0
+    rg, rv = g.collect([]), v.collect([])
+    assert rg.quadros == {"x": ["1", "2"]} and [r["id"] for r in rg.records] == [1]
+    assert rv.quadros == {"y": ["a", "b"]}
+    assert g.to_raw_job({**rg.records[0], "absolute_url": "https://x.io/1"}).board == "x"
+    assert v.to_raw_job({**rv.records[0], "hostedUrl": "https://y.io/a"}).board == "y"
+
+
+@pytest.mark.parametrize("resposta", [
+    (503, {}),                                                        # quadro fora do ar
+    (200, {"jobs": []}),                                              # vazio: suspeito
+    (200, {"jobs": [{"id": 1, "title": "Data"}], "meta": {"total": 5}}),  # lista truncada
+])
+def test_quadro_com_erro_vazio_ou_truncado_nao_serve_de_evidencia(resposta):
+    g = GreenhouseCollector({"empresas": ["x"]}, client=_cliente([resposta]))
+    g.pause = 0
+    assert g.collect([]).quadros == {}

@@ -30,6 +30,10 @@ class CollectResult:
     duplicates_in_source: int = 0
     errors: list[str] = field(default_factory=list)
     params: dict[str, Any] = field(default_factory=dict)
+    # Fontes que listam o quadro inteiro de uma empresa (Greenhouse, Lever): quadro → ids de TODAS as
+    # vagas listadas, antes de qualquer filtro. Só entram quadros lidos por completo; é a evidência
+    # usada para encerrar as vagas que saíram do quadro.
+    quadros: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
