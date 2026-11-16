@@ -21,6 +21,7 @@ from __future__ import annotations
 import html
 import json
 import logging
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
@@ -37,6 +38,12 @@ from . import email as em
 
 log = logging.getLogger(__name__)
 CAMINHO_CONFIG = Path("private") / "radar.yaml"
+# Cadastro de currículos, não vaga concreta: nunca vira "Oportunidade identificada" (continua na lista de vagas).
+_BANCO_DE_TALENTOS = re.compile(r"banco\s+de\s+talentos?|talent\s+(pool|community|network)", re.IGNORECASE)
+
+
+def banco_de_talentos(titulo: object) -> bool:
+    return isinstance(titulo, str) and bool(_BANCO_DE_TALENTOS.search(titulo))
 DIAS = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"]
 TURNOS = ["madrugada", "manha", "tarde", "noite"]
 ROTULO_ACAO = {"estudar": "Estudar um conceito", "atividade": "Desenvolver uma pequena atividade",
@@ -316,6 +323,8 @@ def montar(s: Settings, agora: datetime, cfg: RadarConfig, envios: pd.DataFrame)
         falta = reqs - fortes
         if 1 <= len(falta) <= 2 and falta & prioritarias and reqs & fortes and jid in jobs_idx.index:
             j = jobs_idx.loc[jid]
+            if banco_de_talentos(j["titulo"]):
+                continue
             oportunidade = {"job_id": jid, "titulo": j["titulo"], "url": j["url"],
                             "empresa": j["empresa"] if isinstance(j["empresa"], str) else None,
                             "score": int(sc_obj.get(jid, 0)) if jid in sc_obj.index else None,
