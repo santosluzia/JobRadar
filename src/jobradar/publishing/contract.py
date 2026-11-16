@@ -5,13 +5,14 @@ docs/contracts/v1/ e em publishing/schemas/ — um teste garante que os arquivos
 
 Política de compatibilidade:
 - campo novo OPCIONAL → minor (1.1.0), mesmo diretório v1/;
+  1.1.0: `skill-trends.data.co_occurrence` (coocorrência de competências, opcional);
 - remover/renomear/mudar tipo → nova major em v2/, publicada em paralelo com v1/ por um período.
 """
 from __future__ import annotations
 
 from typing import Any
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 MAJOR = "v1"
 FILES = ("market-summary", "skill-trends", "jobs")
 
@@ -90,6 +91,27 @@ def schemas() -> dict[str, dict[str, Any]]:
     por_sen = _obj({"seniority": {"enum": ENUMS["seniority"]}, "skill_id": {"type": "string"}, "jobs": _int,
                     "total_jobs": _int, "pct": {"type": "number", "minimum": 0, "maximum": 100},
                     "low_sample": {"type": "boolean"}})
+    _ic = {"type": "array", "minItems": 2, "maxItems": 2,
+           "items": {"type": ["number", "null"], "minimum": 0, "maximum": 100}}
+    _pct = {"type": "number", "minimum": 0, "maximum": 100}
+    par = _obj({
+        "skill_a": {"type": "string"}, "skill_b": {"type": "string"},
+        "jobs_both": _int, "jobs_both_required": _int, "jobs_a": _int, "jobs_b": _int,
+        "support_pct": _pct,
+        "confidence_a_b_pct": _pct, "confidence_a_b_ci": _ic,
+        "confidence_b_a_pct": _pct, "confidence_b_a_ci": _ic,
+        "lift": {"type": "number", "minimum": 0},
+        "jaccard": {"type": "number", "minimum": 0, "maximum": 1},
+    })
+    coocorrencia = _obj({
+        "window_days": _int,
+        "base": _int,                       # vagas com ao menos uma competência técnica
+        "min_pair_jobs": _int,
+        "low_sample": {"type": "boolean"},
+        "rank": {"enum": ["jaccard", "lift", "jobs_both"]},
+        "note": {"type": "string"},
+        "pairs": {"type": "array", "items": par},
+    })
     trends = _obj({
         "taxonomy": {"type": "array", "items": _obj({"id": {"type": "string"}, "name": {"type": "string"},
                                                      "category": {"type": "string"}})},
@@ -100,7 +122,8 @@ def schemas() -> dict[str, dict[str, Any]]:
                          "skills": {"type": "array", "items": freq}}),
         "monthly": {"type": "array", "items": serie},
         "by_seniority": {"type": "array", "items": por_sen},
-    })
+        "co_occurrence": coocorrencia,
+    }, required=["taxonomy", "scope", "min_sample", "current", "monthly", "by_seniority"])   # co_occurrence: 1.1.0, opcional
     job = _obj({
         "id": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "title": {"type": "string", "minLength": 2, "maxLength": 300},

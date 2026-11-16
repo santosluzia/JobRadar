@@ -19,7 +19,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-app = ["streamlit>=1.36", "altair>=5"]
+app = ["streamlit>=1.50", "altair>=5"]   # width="stretch" (use_container_width foi descontinuado)
+# Camada semântica local (opcional, desligada por padrão). Versão fixa: o modelo e o código que o
+# lê mudam juntos, e a medição do ADR 0001 vale para esta combinação.
+semantica = ["model2vec==0.10.0"]
+# Leitura local de currículo (Etapa 3). Versões fixas: a interpretação depende do texto que elas extraem.
+curriculo = ["pypdf==7.0.1", "python-docx==1.2.0"]
 dev = ["pytest>=8"]
 
 [project.scripts]

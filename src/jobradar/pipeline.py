@@ -17,12 +17,17 @@ import duckdb
 import pandas as pd
 from pydantic import ValidationError
 
+from .analytics.coocorrencia import pares_por_vaga
+from .evolucao.progresso import perfil_efetivo
+from .seguranca import mascarar
 from .collectors.base import Collector, CollectResult
 from .scoring import Profile, calcular
 from .settings import Settings
 from .storage import Lake, utcnow
+from .transformations import normalize
 from .transformations.silver import PREFERENCIA_FONTE, canonizar
-from .transformations.skills import SkillMatch, Taxonomy
+from .transformations.skills import VERSAO_LEGADA, SkillMatch, Taxonomy, efetivas, so_tecnicas, versoes
+from .transformations.skills import linhas as linhas_skills
 from .transformations.text import normalizar
 
 log = logging.getLogger("jobradar.pipeline")
@@ -58,6 +63,7 @@ class RunReport:
     encerradas_fora_do_quadro: int = 0   # saíram do quadro da empresa no ATS nesta execução
     meses_recalculados: list[str] = field(default_factory=list)
     vagas_pontuadas: int = 0
+    vagas_enriquecidas: int = 0          # passaram pela camada semântica local (se ativa)
     bronze_particoes_removidas: int = 0
     duracao_s: float = 0.0
 
@@ -69,7 +75,9 @@ class RunReport:
 
 
 def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
-        agora: datetime | None = None) -> RunReport:
+        agora: datetime | None = None, pontuar: bool = True) -> RunReport:
+    """`pontuar=False` (workflow público com a parte pessoal no repositório privado): não lê o perfil;
+    o score fica para `jobradar pontuar`, que roda no workflow privado."""
     t0 = time.monotonic()
     agora = agora or utcnow()
     run_id = run_id or agora.strftime("%Y%m%dT%H%M%SZ")
@@ -92,6 +100,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
             log.exception("%s: erro inesperado", coletor.name)
             res = CollectResult(coletor.name)
             res.errors.append(f"{type(e).__name__}: {e}")
+        res.errors = [mascarar(x) for x in res.errors]   # erro nunca leva chave/senha (bronze, meta, log, resumo)
         lake.write_bronze(coletor.name, dia, run_id, {
             "run_id": run_id, "source": coletor.name, "ingested_at": agora.isoformat(),
             "params": res.params, "requests": res.requests, "retries": res.retries,
@@ -174,18 +183,25 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     limite_desc = agora - timedelta(days=int(s.retencao.get("descricao_dias_apos_ultima_observacao", 180)))
     jobs.loc[jobs["ultima_observacao"] < limite_desc, "descricao"] = None
 
-    # Competências e observações (histórico de mudanças de requisitos)
+    # Competências e observações (histórico de mudanças de requisitos, só técnicas)
     skills = lake.read("silver/job_skills")
-    antes = skills.groupby("job_id")["skill_id"].apply(lambda x: set(x)).to_dict()
+    antes = so_tecnicas(skills).groupby("job_id")["skill_id"].apply(lambda x: set(x)).to_dict()
+    versao_antes = versoes(skills)
     novas_skills, observacoes = [], []
     alterados: set[str] = set()
+    regua: set[str] = set()
     for row in lote.itertuples():
         atuais = skills_lote.get(row.job_id, [])
-        ids = {m.skill_id for m in atuais}
-        prev = antes.get(row.job_id)
-        mudou = prev is not None and prev != ids
+        ids = {m.skill_id for m in atuais if m.tipo == "tecnica"}
+        prev = antes.get(row.job_id, set() if row.job_id in versao_antes else None)
+        # Só é mudança de requisito se a vaga mudou: troca de versão da taxonomia não conta.
+        mudou = prev is not None and prev != ids and versao_antes.get(row.job_id) == tax.versao
         if mudou:
             alterados.add(row.job_id)
+        # Para a gold, qualquer troca no conjunto de competências conta — inclusive a causada por uma
+        # taxonomia nova (sem isso o mês ficaria com a contagem da régua antiga).
+        if row.job_id in conhecidos and antes.get(row.job_id, set()) != ids:
+            regua.add(row.job_id)
         observacoes.append({
             "job_id": row.job_id, "run_id": run_id, "observada_em": agora,
             "descricao_hash": row.descricao_hash, "titulo": row.titulo,
@@ -193,22 +209,115 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
             "skills_adicionadas": ",".join(sorted(ids - prev)) if mudou else None,
             "skills_removidas": ",".join(sorted(prev - ids)) if mudou else None,
         })
-        novas_skills += [{"job_id": row.job_id, "skill_id": m.skill_id, "importancia": m.importancia,
-                          "termo": m.termo, "run_id": run_id} for m in atuais]
+        novas_skills += linhas_skills(row.job_id, atuais, run_id, tax.versao)
     report.requisitos_alterados = len(alterados)
     skills = pd.concat([skills[~skills["job_id"].isin(ids_lote)], pd.DataFrame(novas_skills,
                         columns=skills.columns)], ignore_index=True)
+    # A evidência é um trecho da descrição: some junto com ela (retenção acima).
+    sem_desc = set(jobs.loc[jobs["descricao"].isna(), "job_id"])
+    skills.loc[skills["job_id"].isin(sem_desc), "evidencia"] = None
 
     lake.write("silver/jobs", jobs)
     lake.write("silver/job_skills", skills)
     lake.append("silver/observations", pd.DataFrame(observacoes))
 
+    # ---------------- camada semântica local (desligada por padrão) ----------------
+    ext = tax.config.extracao
+    semantica = None
+    if ext.semantica.ativa:
+        from .semantic import enriquecer, pendentes
+        alvo = pendentes(jobs[jobs["job_id"].isin(ids_lote)], lake.read("silver/job_skills_semantica"), tax)
+        report.vagas_enriquecidas = enriquecer(lake, tax, alvo, skills, run_id, agora)
+    if ext.gold_hibrida:
+        semantica = lake.read("silver/job_skills_semantica")
+    efetivas_ = efetivas(skills, semantica, ext.gold_hibrida)
+
     # ---------------- gold ----------------
-    report.meses_recalculados = _skill_monthly(lake, jobs, skills, novos | alterados | trocaram)
-    report.vagas_pontuadas = _scores(lake, s, jobs, skills, ids_lote, agora)
+    report.meses_recalculados = _skill_monthly(lake, jobs, efetivas_, novos | alterados | regua | trocaram)
+    report.vagas_pontuadas = _scores(lake, s, jobs, efetivas_, ids_lote, agora) if pontuar else 0
 
     report.bronze_particoes_removidas = lake.prune_bronze(dia, int(s.retencao.get("bronze_dias", 90)))
     return _finalizar(lake, report, problemas, t0)
+
+
+def reextrair(s: Settings, agora: datetime | None = None, run_id: str | None = None,
+              todas: bool = False, pontuar: bool = True) -> dict[str, Any]:
+    """Reaplica a taxonomia ATUAL às vagas do histórico que ainda têm descrição.
+
+    Serve para o histórico inteiro usar a mesma versão da taxonomia (sem isso, a tendência mensal
+    mistura regras antigas e novas). Não coleta nada e não grava observação: a vaga não mudou,
+    mudou a régua. Vaga cuja descrição já saiu pela retenção mantém as competências antigas
+    (com a versão antiga registrada). Recalcula a família inferida, a gold inteira e os scores.
+    """
+    agora = agora or utcnow()
+    run_id = run_id or "reextracao-" + agora.strftime("%Y%m%dT%H%M%SZ")
+    lake = Lake(s.lake)
+    tax = Taxonomy(s.skills)
+    jobs = lake.read("silver/jobs")
+    skills = lake.read("silver/job_skills")
+    com_desc = jobs["descricao"].notna()
+    # A versão fica na vaga (não só nas linhas de competência): vaga sem nenhuma competência também conta.
+    versao = jobs["taxonomia_versao"].fillna(VERSAO_LEGADA)
+    alvo = jobs[com_desc & (todas | (versao != tax.versao))]
+    if alvo.empty:   # histórico já alinhado: não reescreve nada (roda em toda execução do workflow)
+        return {"taxonomia_versao": tax.versao, "run_id": run_id, "vagas_reextraidas": 0,
+                "vagas_sem_descricao_mantidas": int((~com_desc).sum()), "por_skill": pd.DataFrame(
+                    columns=["antes", "depois", "diferenca"])}
+    antes = so_tecnicas(skills[skills["job_id"].isin(alvo["job_id"])])
+
+    novas, familias = [], {}
+    for j in alvo.itertuples():
+        achados = tax.extrair(j.titulo, j.descricao)
+        novas += linhas_skills(j.job_id, achados, run_id, tax.versao)
+        fam, origem = normalize.familia(j.titulo, {m.skill_id for m in achados if m.tipo == "tecnica"})
+        familias[j.job_id] = (fam.value, origem)
+    skills = pd.concat([skills[~skills["job_id"].isin(alvo["job_id"])], pd.DataFrame(novas, columns=skills.columns)],
+                       ignore_index=True)
+    jobs.loc[jobs["job_id"].isin(alvo["job_id"]), "taxonomia_versao"] = tax.versao
+    mudou_familia = 0
+    for i in jobs.index[jobs["job_id"].isin(familias)]:
+        fam, origem = familias[jobs.at[i, "job_id"]]
+        if jobs.at[i, "familia"] != fam:
+            mudou_familia += 1
+            jobs.at[i, "familia"] = fam
+            oc = json.loads(jobs.at[i, "origem_campos"] or "{}")
+            oc["familia"] = origem
+            jobs.at[i, "origem_campos"] = json.dumps(oc)
+
+    lake.write("silver/jobs", jobs)
+    lake.write("silver/job_skills", skills)
+    ext = tax.config.extracao
+    sem = lake.read("silver/job_skills_semantica") if ext.gold_hibrida else None
+    ef = efetivas(skills, sem, ext.gold_hibrida)
+    lake.write("gold/skill_monthly", lake.read("gold/skill_monthly").iloc[0:0])   # recalcula todos os meses
+    meses = _skill_monthly(lake, jobs, ef, set(jobs["job_id"]))
+    pontuadas = _scores(lake, s, jobs, ef, set(alvo["job_id"]), agora) if pontuar else 0
+
+    depois = so_tecnicas(skills[skills["job_id"].isin(alvo["job_id"])])
+    cont_a, cont_d = antes["skill_id"].value_counts(), depois["skill_id"].value_counts()
+    por_skill = (pd.DataFrame({"antes": cont_a, "depois": cont_d}).fillna(0).astype(int)
+                 .assign(diferenca=lambda d: d["depois"] - d["antes"]).sort_values("diferenca", ascending=False))
+    return {
+        "taxonomia_versao": tax.versao, "run_id": run_id,
+        "vagas_reextraidas": len(alvo), "vagas_sem_descricao_mantidas": int((~com_desc).sum()),
+        "familia_alterada": mudou_familia, "meses_recalculados": len(meses), "vagas_pontuadas": pontuadas,
+        "achados_por_metodo": so_tecnicas(skills[skills["job_id"].isin(alvo["job_id"])])["metodo"]
+            .value_counts().to_dict(),
+        "nao_tecnicas": int((skills["job_id"].isin(alvo["job_id"]) & (skills["tipo"] != "tecnica")).sum()),
+        "por_skill": por_skill,
+    }
+
+
+def pontuar(s: Settings, agora: datetime | None = None) -> int:
+    """Score por vaga e objetivo, fora da coleta (workflow privado). Incremental: só vagas sem score ou
+    com perfil diferente (hash do perfil efetivo = perfil declarado + progresso)."""
+    agora = agora or utcnow()
+    lake = Lake(s.lake)
+    tax = Taxonomy(s.skills)
+    ext = tax.config.extracao
+    sem = lake.read("silver/job_skills_semantica") if ext.gold_hibrida else None
+    return _scores(lake, s, lake.read("silver/jobs"), efetivas(lake.read("silver/job_skills"), sem, ext.gold_hibrida),
+                   set(), agora)
 
 
 # ---------------------------------------------------------------- helpers
@@ -295,40 +404,69 @@ def _skill_monthly(lake: Lake, jobs: pd.DataFrame, skills: pd.DataFrame, afetado
     base = jobs.assign(mes=mes)[jobs["is_canonica"]]
     # Afetada pode ter deixado de ser canônica: o mês dela é procurado em todas as vagas.
     meses = sorted(set(base["mes"])) if atual.empty else sorted(set(mes[jobs["job_id"].isin(afetados)]))
+    # Mês gravado antes da Etapa 2 (sem a base da coocorrência) também é refeito.
+    if not atual.empty:
+        sem_base = atual[(atual["skill_id"] == "__total__") & atual["vagas_com_competencia"].isna()]["mes"]
+        meses = sorted(set(meses) | (set(sem_base) & set(base["mes"])))
     if not meses:
+        if not base.empty and lake.read("gold/skill_pairs").empty:   # primeira execução com a Etapa 2
+            _skill_pairs(lake, base, skills, [])
         return []
     con = duckdb.connect()
     con.register("base", base[["job_id", "mes", "familia", "senioridade"]])
     con.register("sk", skills[["job_id", "skill_id", "importancia"]])
     novo = con.execute("""
         WITH totais AS (
-            SELECT mes, familia, senioridade, COUNT(*) AS total_vagas
+            SELECT mes, familia, senioridade, COUNT(*) AS total_vagas,
+                   COUNT(*) FILTER (WHERE job_id IN (SELECT job_id FROM sk)) AS vagas_com_competencia
             FROM base WHERE mes IN (SELECT UNNEST(?)) GROUP BY ALL
         )
         SELECT b.mes, b.familia, b.senioridade, s.skill_id,
                COUNT(DISTINCT b.job_id) AS vagas_com_skill,
                COUNT(DISTINCT CASE WHEN s.importancia = 'requisito' THEN b.job_id END) AS vagas_requisito,
-               ANY_VALUE(t.total_vagas) AS total_vagas
+               ANY_VALUE(t.total_vagas) AS total_vagas, NULL::BIGINT AS vagas_com_competencia
         FROM base b
         JOIN sk s USING (job_id)
         JOIN totais t USING (mes, familia, senioridade)
         GROUP BY ALL
         UNION ALL
         -- grupos sem nenhuma competência identificada também entram no denominador
-        SELECT mes, familia, senioridade, '__total__', 0, 0, total_vagas FROM totais
+        SELECT mes, familia, senioridade, '__total__', 0, 0, total_vagas, vagas_com_competencia FROM totais
     """, [meses]).df()
     con.close()
     lake.write("gold/skill_monthly", pd.concat([atual[~atual["mes"].isin(meses)], novo], ignore_index=True))
+    _skill_pairs(lake, base, skills, meses)
     return meses
+
+
+def _skill_pairs(lake: Lake, base: pd.DataFrame, skills: pd.DataFrame, meses: list[str]) -> None:
+    """Coocorrência por coorte mensal e segmento, recalculada nos MESMOS meses da skill_monthly
+    (ou em todos, se a tabela ainda não existe). Mesma menção não conta (analytics.coocorrencia)."""
+    atual = lake.read("gold/skill_pairs")
+    if atual.empty:
+        meses = sorted(set(base["mes"]))
+    alvo = base[base["mes"].isin(meses)]
+    pares = pares_por_vaga(skills[skills["job_id"].isin(alvo["job_id"])])
+    if pares.empty:
+        novo = pd.DataFrame(columns=atual.columns)
+    else:
+        novo = (pares.merge(alvo[["job_id", "mes", "familia", "senioridade"]], on="job_id")
+                .groupby(["mes", "familia", "senioridade", "skill_a", "skill_b"], as_index=False)
+                .agg(vagas_par=("job_id", "nunique"), vagas_par_requisito=("ambos_requisito", "sum")))
+    partes = [p for p in (atual[~atual["mes"].isin(meses)], novo) if not p.empty]
+    lake.write("gold/skill_pairs", pd.concat(partes, ignore_index=True) if partes else novo)
 
 
 def _scores(lake: Lake, s: Settings, jobs: pd.DataFrame, skills: pd.DataFrame,
             ids_lote: set[str], agora: datetime) -> int:
-    perfil = Profile.from_dict(s.profile)
+    """Um score por vaga E por objetivo do perfil: cargos diferentes não se misturam numa nota só.
+    Recalcula vagas observadas agora, vagas sem score e todas quando o perfil muda (hash)."""
+    perfil = perfil_efetivo(s.profile, lake)       # perfil declarado + progresso (Etapa 4)
+    objetivos = perfil.por_objetivo()
     atual = lake.read("gold/job_scores")
     alvo = jobs[jobs["is_canonica"] & (jobs["status"] != "encerrada")]
-    precisa = alvo["job_id"].isin(ids_lote) | ~alvo["job_id"].isin(atual["job_id"]) \
-        | alvo["job_id"].isin(atual.loc[atual["perfil_hash"] != perfil.hash, "job_id"])
+    com_score = set(atual.loc[atual["perfil_hash"] == perfil.hash, "job_id"])
+    precisa = alvo["job_id"].isin(ids_lote) | ~alvo["job_id"].isin(com_score)
     alvo = alvo[precisa]
     if alvo.empty:
         return 0
@@ -336,14 +474,16 @@ def _scores(lake: Lake, s: Settings, jobs: pd.DataFrame, skills: pd.DataFrame,
     excl = s.filtros.get("palavras_excludentes", [])
     linhas = []
     for job in alvo.to_dict("records"):
-        r = calcular(job, por_job.get(job["job_id"], []), perfil, s.scoring["aderencia"], excl)
-        linhas.append({"job_id": job["job_id"], "score": r.score,
-                       "explicacao": json.dumps(r.explicacao, ensure_ascii=False),
-                       "lacunas": json.dumps(r.lacunas), "sem_evidencia": json.dumps(r.sem_evidencia),
-                       "calculado_em": agora, "perfil_hash": perfil.hash})
+        for p in objetivos:
+            r = calcular(job, por_job.get(job["job_id"], []), p, s.scoring["aderencia"], excl)
+            linhas.append({"job_id": job["job_id"], "score": r.score,
+                           "explicacao": json.dumps(r.explicacao, ensure_ascii=False),
+                           "lacunas": json.dumps(r.lacunas), "sem_evidencia": json.dumps(r.sem_evidencia),
+                           "calculado_em": agora, "perfil_hash": perfil.hash, "objetivo_id": p.objetivo_id})
     novo = pd.DataFrame(linhas)
+    # troca TODAS as linhas das vagas recalculadas (inclui objetivos removidos e linhas antigas sem objetivo)
     lake.write("gold/job_scores", pd.concat([atual[~atual["job_id"].isin(novo["job_id"])], novo], ignore_index=True))
-    return len(novo)
+    return int(novo["job_id"].nunique())
 
 
 def _finalizar(lake: Lake, report: RunReport, problemas: list[dict], t0: float) -> RunReport:

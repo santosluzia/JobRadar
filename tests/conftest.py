@@ -111,6 +111,13 @@ PERFIL_TESTE = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _home_privada(tmp_path, monkeypatch):
+    """Currículo e diagnósticos dos testes nunca tocam a pasta privada real (~/.jobradar)."""
+    monkeypatch.setenv("JOBRADAR_HOME", str(tmp_path / "home_privada"))
+    monkeypatch.delenv("JOBRADAR_PROFILE", raising=False)
+
+
 @pytest.fixture
 def fake() -> FakeSources:
     return FakeSources()

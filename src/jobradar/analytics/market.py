@@ -11,7 +11,9 @@ from typing import Any
 
 import pandas as pd
 
+from ..scoring import melhor_por_vaga
 from ..storage import Lake
+from ..transformations.skills import efetivas
 
 
 @dataclass
@@ -26,17 +28,24 @@ class Snapshot:
     scores: pd.DataFrame
 
 
-def carregar(lake: Lake) -> Snapshot:
+def competencias(lake: Lake, hibrida: bool = False) -> pd.DataFrame:
+    """Competências que contam para indicadores, score e dados públicos (só técnicas;
+    com `hibrida`, somadas às da camada semântica local)."""
+    sem = lake.read("silver/job_skills_semantica") if hibrida else None
+    return efetivas(lake.read("silver/job_skills"), sem, hibrida)
+
+
+def carregar(lake: Lake, hibrida: bool = False) -> Snapshot:
     jobs = lake.read("silver/jobs")
     return Snapshot(
         jobs=jobs,
         canonicas=jobs[jobs["is_canonica"].fillna(False)].copy(),
-        skills=lake.read("silver/job_skills"),
+        skills=competencias(lake, hibrida),
         monthly=lake.read("gold/skill_monthly"),
         runs=lake.read("meta/runs"),
         source_runs=lake.read("meta/source_runs"),
         issues=lake.read("silver/quality_issues"),
-        scores=lake.read("gold/job_scores"),
+        scores=melhor_por_vaga(lake.read("gold/job_scores")),   # uma linha por vaga (melhor objetivo)
     )
 
 

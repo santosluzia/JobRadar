@@ -14,12 +14,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # permite `from compon
 
 st.set_page_config(page_title="JobRadar", page_icon="📡", layout="wide")
 
-paginas = [
-    st.Page("pages/1_visao_geral.py", title="Visão geral", icon="📊", default=True),
-    st.Page("pages/2_mercado.py", title="Mercado", icon="📈"),
-    st.Page("pages/4_vagas.py", title="Vagas", icon="🗂️"),
-    # Fora do menu por enquanto (depende do perfil). Para reativar, descomente:
-    # st.Page("pages/3_aderencia_estudos.py", title="Minha aderência e estudos", icon="🎯"),
-]
+paginas = {
+    "Mercado": [
+        st.Page("pages/1_visao_geral.py", title="Visão geral", icon="📊", default=True),
+        st.Page("pages/2_mercado.py", title="Radar de mercado", icon="📈"),
+        st.Page("pages/4_vagas.py", title="Vagas", icon="🗂️"),
+    ],
+    # Career Intelligence (Etapa 7): tudo daqui é pessoal e só existe nesta máquina / no repositório privado.
+    "Career Intelligence": [
+        st.Page("pages/7_compatibilidade.py", title="Minha compatibilidade", icon="🧭"),
+        st.Page("pages/3_aderencia_estudos.py", title="Minha Evolução Profissional", icon="🎯"),
+        st.Page("pages/5_curriculo.py", title="Meu currículo", icon="📄"),
+        st.Page("pages/6_relatorio_semanal.py", title="Relatório semanal", icon="🗓️"),
+        st.Page("pages/8_diagnostico_mensal.py", title="Diagnóstico mensal", icon="📆"),
+    ],
+}
 st.navigation(paginas).run()
 st.sidebar.caption("Painel privado · dados pessoais nunca saem desta máquina.")

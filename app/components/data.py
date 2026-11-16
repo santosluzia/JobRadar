@@ -19,14 +19,15 @@ def settings() -> Settings:
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _snapshot(lake_path: str, _versao: float) -> market.Snapshot:
-    return market.carregar(Lake(Path(lake_path)))
+def _snapshot(lake_path: str, _versao: float, hibrida: bool) -> market.Snapshot:
+    return market.carregar(Lake(Path(lake_path)), hibrida)
 
 
 def snapshot() -> market.Snapshot:
     s = settings()
     marcador = s.lake / "meta" / "runs.parquet"
-    return _snapshot(str(s.lake), marcador.stat().st_mtime if marcador.exists() else 0.0)
+    return _snapshot(str(s.lake), marcador.stat().st_mtime if marcador.exists() else 0.0,
+                     taxonomia().config.extracao.gold_hibrida)
 
 
 def lake() -> Lake:
@@ -38,7 +39,8 @@ def taxonomia() -> Taxonomy:
 
 
 def perfil() -> Profile:
-    return Profile.from_dict(settings().profile)
+    from jobradar.evolucao.progresso import perfil_efetivo
+    return perfil_efetivo(settings().profile, lake())   # perfil declarado + progresso de estudos
 
 
 def nomes() -> dict[str, str]:

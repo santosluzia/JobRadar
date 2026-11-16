@@ -21,6 +21,20 @@ import pyarrow.parquet as pq
 from .schemas import TABLES
 
 
+def _trocar(tmp: Path, destino: Path, tentativas: int = 5) -> None:
+    """os.replace com nova tentativa curta: no Windows, antivírus/indexador às vezes seguram o arquivo
+    por alguns milissegundos (PermissionError). A troca continua atômica."""
+    import time
+    for i in range(tentativas):
+        try:
+            os.replace(tmp, destino)
+            return
+        except PermissionError:
+            if i == tentativas - 1:
+                raise
+            time.sleep(0.05 * 2 ** i)
+
+
 class Lake:
     def __init__(self, root: Path):
         self.root = Path(root)
@@ -53,7 +67,7 @@ class Lake:
         tabela = pa.Table.from_pandas(df, schema=schema, preserve_index=False, safe=False)
         tmp = p.with_suffix(".parquet.tmp")
         pq.write_table(tabela, tmp, compression="zstd")
-        os.replace(tmp, p)  # troca atômica: um crash nunca deixa meia tabela
+        _trocar(tmp, p)  # troca atômica: um crash nunca deixa meia tabela
 
     def append(self, table: str, df: pd.DataFrame) -> None:
         if df.empty:

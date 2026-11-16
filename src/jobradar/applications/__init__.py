@@ -11,7 +11,9 @@ import pandas as pd
 from ..models import APPLICATION_STATUSES
 from ..storage import Lake, utcnow
 
-STUDY_STATUSES = ["planejado", "em_andamento", "concluido", "pausado"]
+# Etapa 4: status de progresso em jobradar.evolucao.progresso (os antigos continuam aceitos)
+STUDY_STATUSES = ["nao_iniciada", "em_estudo", "em_pratica", "demonstrada_em_projeto", "comprovada_profissional",
+                  "pausada", "planejado", "em_andamento", "concluido", "pausado"]
 
 
 def atualizar_candidatura(lake: Lake, job_id: str, status: str, nota: str | None = None,
@@ -34,14 +36,7 @@ def atualizar_candidatura(lake: Lake, job_id: str, status: str, nota: str | None
 
 
 def atualizar_estudo(lake: Lake, skill_id: str, status: str, inicio: str | None = None,
-                     conclusao: str | None = None, evidencia: str | None = None) -> None:
-    if status not in STUDY_STATUSES:
-        raise ValueError(f"status inválido: {status} (use {', '.join(STUDY_STATUSES)})")
-    df = lake.read("private/study_progress")
-    atual = df[df["skill_id"] == skill_id]
-    base = atual.iloc[0].to_dict() if len(atual) else {}
-    linha = {"skill_id": skill_id, "status": status,
-             "inicio": inicio or base.get("inicio"), "conclusao": conclusao or base.get("conclusao"),
-             "evidencia": evidencia or base.get("evidencia"), "atualizado_em": utcnow()}
-    lake.write("private/study_progress", pd.concat([df[df["skill_id"] != skill_id], pd.DataFrame([linha])],
-                                                   ignore_index=True))
+                     conclusao: str | None = None, evidencia: str | None = None) -> dict:
+    """Compatível com a versão anterior; a regra está em evolucao.progresso.atualizar."""
+    from ..evolucao.progresso import atualizar
+    return atualizar(lake, skill_id, status, evidencia, inicio, conclusao)

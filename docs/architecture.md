@@ -31,6 +31,8 @@ src/jobradar/
    - **observação** por vaga e execução em `silver/observations`, registrando competências adicionadas ou removidas quando os requisitos mudam;
    - **deduplicação**: duas vagas são a mesma quando batem na **chave alternativa** (empresa + título sem ruído + UF, entre fontes) ou na **chave de republicação** (mesma fonte + mesma empresa, ou ambas sem empresa + mesmo título + mesma UF + mesma descrição). A segunda pega o agregador que republica o anúncio com outro id e outra data, inclusive sem empresa, caso em que não há chave alternativa. Os grupos são transitivos. Uma vaga é eleita canônica (ATS direto > agregador; depois a mais antiga) e as demais ficam marcadas `is_canonica = false`. Nada é apagado. "Novas" no relatório da execução são só as canônicas de id novo;
    - **status** recalculado (regra abaixo) e **retenção** de descrições aplicada.
+   - **competências** extraídas pela taxonomia versionada. Cada achado traz método, evidência,
+     confiança e versão; detalhes na seção abaixo.
 4. **Gold.**
    - `gold/skill_monthly` é recalculado **só para os meses afetados**: meses de vagas novas ou com requisitos alterados.
    - `gold/job_scores` é recalculado para vagas observadas na execução ou quando o perfil muda (o hash do perfil detecta isso).
@@ -88,7 +90,106 @@ O dashboard público só lê poucos agregados, que mudam poucas vezes por dia. J
 2. consultas filtradas sobre um histórico grande demais para um arquivo;
 3. consumidores externos que precisem de paginação ou filtros no servidor.
 
+## Extração de competências
+
+Detalhes em docs/taxonomia.md; decisão e medição em docs/adr/0001-extracao-de-competencias-sem-custo.md.
+
+- **Regras determinísticas, ativas por padrão.**
+  - **Achados:** termos e sinônimos, mais **conceitos** (frases que implicam a competência).
+  - **Leitura do texto:** segmentação dos textos colados da Gupy; seções e frases de contexto (sobre
+    a empresa, benefícios), que não geram competência.
+  - **Rastreabilidade:** por achado ficam a evidência (frase original), o método, a confiança e a versão da taxonomia.
+- **Técnicas × não técnicas.** Comportamentais e idioma ficam só na silver (uso privado). Gold, score,
+  recomendações, e-mail e contrato público usam só as técnicas, por um único ponto de decisão:
+  `transformations.skills.efetivas` (via `analytics.market.competencias`).
+- **Camada semântica local, desligada.** Usa embeddings model2vec (modelo MIT, revisão fixa e
+  SHA-256 conferido), só como complemento e em tabela separada. Entra nos números públicos apenas com
+  `gold_hibrida: true`. Nenhum texto sai da máquina.
+- **Versão da taxonomia.**
+  - Mudança de versão não é "mudança de requisito" da vaga.
+  - A gold recalcula os meses das vagas cujas competências mudaram por qualquer motivo.
+  - O passo `jobradar reextrair` do workflow alinha o histórico à versão atual; não faz nada se já está alinhado.
+- **Qualidade medida.** Conjunto-ouro privado com lotes `ajuste` e `teste` (`jobradar avaliacao medir`).
+  A fila de curadoria (`jobradar competencias candidatas`) sugere termos não cobertos.
+
+## Coocorrência de competências
+
+Detalhes em docs/adr/0002-coocorrencia-de-competencias.md.
+
+- **Base:** vagas com ao menos uma competência técnica. Mesma menção ("PySpark", "Azure Data Factory") não é par.
+- **Métricas** (`analytics/coocorrencia.py`): suporte, confiança A→B e B→A com intervalo de Wilson,
+  lift e Jaccard, com mínimos de amostra.
+- **Armazenamento e uso:**
+  - `gold/skill_pairs` é incremental pelos meses afetados;
+  - o recorte de 90 dias vai para o contrato público (`co_occurrence`, 1.1.0);
+  - o uso privado fica no comando `jobradar coocorrencia` e na página Mercado do painel.
+- **Leitura:** é associação, não causa.
+
+## Perfil, objetivos e currículo (privado)
+
+Detalhes em docs/adr/0003-curriculo-privado.md.
+
+- **Objetivos:** o perfil tem vários (`objetivos:` em `profile.yaml`). Cada um tem vagas-alvo, score
+  (`gold/job_scores.objetivo_id`) e diagnóstico próprios.
+- **Currículo:** é lido e interpretado localmente, sem IA (`jobradar.curriculo`), e guardado em
+  `$JOBRADAR_HOME`, fora do git. Pipeline, publicação e e-mail não importam esse pacote.
+- **Diagnóstico:** compara a aderência do **perfil** (o que você declara) com a do **currículo** (o que
+  o texto demonstra), ponderadas pela demanda das vagas-alvo. As sugestões vêm de regras e citam os
+  dados que as justificam.
+
+## Minha Evolução Profissional (privado)
+
+Detalhes em docs/adr/0004-evolucao-profissional.md.
+
+- **Plano por objetivo:** prioridade explicável (7 fatores com decomposição) e as 7 classes da
+  especificação. Só as N lacunas mais prioritárias viram "prioritárias"; as demais aparecem com o motivo.
+- **Recomendações:** ligadas às vagas (quantas, em quais cargos, com quais tecnologias) e ao conteúdo
+  editável de `config/evolucao.yaml`.
+- **Progresso** (`private/study_progress` e `study_events`): forma o **perfil efetivo**, que só sobe o
+  nível declarado. Curso concluído não vira experiência profissional. Mudar o progresso recalcula o score
+  na próxima execução e o plano na próxima consulta.
+
+## JobRadar — Seu Radar Profissional (e-mail diário)
+
+Detalhes em docs/adr/0005-radar-profissional.md.
+
+- **Quando sai:** no turno configurado (`private/radar.yaml`), o Radar substitui o e-mail de vagas e já
+  leva as vagas novas.
+- **Conteúdo:** 4 blocos (mercado, perfil, oportunidade, ação do dia) montados com o plano da Etapa 4.
+- **Qualidade:** tendência só com amostra mínima; a ação do dia não se repete e respeita o progresso;
+  item já apontado nos últimos dias não volta.
+- **Privacidade e controle:**
+  - o currículo só entra pelo resumo de níveis, compartilhado por adesão;
+  - o Radar não lê `~/.jobradar`, e o log recebe só contagens;
+  - o histórico e o controle de duplicidade ficam em `private/radar_envios`.
+
+## Relatório Semanal de Evolução Profissional
+
+Detalhes em docs/adr/0006-relatorio-semanal.md.
+
+- **Envio:** e-mail semanal à parte do Radar (padrão: segunda 12:00).
+- **Conteúdo:** 10 seções e, no fim, as 3 principais oportunidades.
+- **Comparações:** semana × semana, 30 × 30 dias, objetivo × mercado e versões do resumo do currículo,
+  todas só com amostra mínima.
+- **Acompanhamento:** cruza as recomendações anteriores (Radar e relatório) com o progresso registrado depois.
+- **Histórico:** `private/relatorios_semanais`; consulta na página "Relatório semanal" do painel.
+
+## Career Intelligence e diagnóstico mensal
+
+Detalhes em docs/adr/0007-career-intelligence.md.
+
+- **Retrato mensal automático por objetivo** em `private/diagnosticos_mensais`, com e-mail mensal.
+- **As 7 perguntas da especificação**, e "a aderência melhorou?" decomposta em efeito do mercado e
+  efeito do perfil.
+- **Painel em duas seções:**
+  - Mercado: Visão geral, Radar de mercado e Vagas;
+  - Career Intelligence: Minha compatibilidade, Minha Evolução Profissional, Meu currículo, Relatório
+    semanal e Diagnóstico mensal.
+
 ## Score de aderência
+
+Calculado **por objetivo** do perfil (uma linha por vaga e objetivo). O texto abaixo vale para cada objetivo.
+
 
 A soma ponderada vai de 0 a 100. Os pesos estão em `config/scoring.yaml`:
 
@@ -124,6 +225,19 @@ Cada score é gravado com a lista de critérios, pontos e motivo. As lacunas sã
 | Lever | `api.lever.co/v0/postings/{empresa}` | API pública de postings. Ativa com a CI&T, com o mesmo filtro por título |
 | LinkedIn / Indeed | — | Não usados: os termos proíbem automação |
 
+## Governança e segurança
+
+Detalhes em docs/adr/0008-governanca-seguranca.md, docs/privacidade.md e docs/rastreabilidade.md.
+
+- **Fronteira:** o público (código, logs do Actions, `public-data`) nunca recebe dado pessoal. Há um teste
+  com canário em todo dado privado e uma checagem estática do código de publicação.
+- **Parte pessoal no privado:** com `JOBRADAR_NOTIFICACAO_PRIVADA=true`, o workflow público roda
+  `--sem-pontuacao`, e o workflow do `jobradar-data` roda `jobradar pontuar` e os e-mails, disparado pelo
+  push do lake.
+- **Validações registradas** em `meta/validacoes` e `private/validacoes`. Segredos mascarados em erros,
+  logs e resumo. Actions fixadas por SHA. Painel só em `localhost`.
+- **Saúde:** `analytics/saude.py`, com indicadores e alertas só agregados.
+
 ## Retenção
 
 | Dado | Retenção |
@@ -132,3 +246,4 @@ Cada score é gravado com a lista de critérios, pontos e motivo. As lacunas sã
 | Descrição completa na silver | Até 180 dias após a última observação; depois só o hash e as competências |
 | Metadados, competências, observações e agregados | Indefinida |
 | Dados públicos | Só agregados, título, empresa, local, link e competências, **sem descrição** |
+| Currículo local (pasta privada) | 12 versões mais recentes; diagnósticos e planos por 24 meses (`jobradar privacidade limpar`) |

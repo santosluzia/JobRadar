@@ -46,3 +46,39 @@ recomendacoes:
     projeto: 0.10
     esforco: 0.10
   esforco_fator: {baixo: 1.0, medio: 0.6, alto: 0.3}
+
+# Coocorrência de competências (analytics/coocorrencia.py, docs/adr/0002). Associação na amostra,
+# não causa. Base = vagas com ao menos uma competência técnica; janela = recomendacoes.janela_dias.
+# Etapa 8 (docs/privacidade.md): retenção dos dados pessoais na pasta privada local ($JOBRADAR_HOME).
+# Roda a cada importação de currículo e com `jobradar privacidade limpar`.
+privacidade:
+  max_versoes_curriculo: 12   # versões mais antigas saem com o original e os diagnósticos delas
+  meses_diagnosticos: 24      # diagnósticos do currículo e planos de evolução salvos
+
+coocorrencia:
+  min_vagas_par: 10        # abaixo disso o par é "amostra pequena" (não vai para o público)
+  publicar_pares: 100      # quantos pares entram em skill-trends.json
+  ordem_publica: jaccard   # jaccard equilibra frequência e associação; lift sozinho favorece pares raros
+
+# Análise privada do currículo (Etapa 3, docs/adr/0003). O currículo NUNCA sai da sua máquina.
+curriculo:
+  # Quanto cada nível de evidência NO TEXTO DO CURRÍCULO cobre uma competência pedida.
+  # Curso/certificação concluído é "parcial": não é experiência profissional.
+  pesos_evidencia: {comprovada: 1.0, projeto: 0.75, declarada: 0.5, parcial: 0.4, sem_evidencia: 0.0}
+  janela_dias: 90                 # vagas-alvo: primeira observação nos últimos N dias
+  min_pct_relevante: 5            # competência pedida em menos de N% das vagas-alvo não entra nas listas
+  limiar_lacuna_pct: 15           # pedida em ≥ N% das vagas-alvo e sem evidência → lacuna prioritária
+
+# Minha Evolução Profissional (Etapa 4, docs/adr/0004). Prioridade = soma ponderada de 7 fatores (0–1).
+evolucao:
+  pesos:
+    frequencia: 0.30        # % das vagas-alvo que pedem a competência
+    exigencia: 0.15         # parte dessas vagas que a pede como REQUISITO
+    crescimento: 0.10       # variação contra o período anterior (0 enquanto inconclusiva)
+    compatibilidade: 0.15   # quanto é mais comum nas vagas do objetivo do que no resto do mercado
+    senioridade: 0.10       # frequência nas vagas das senioridades do objetivo
+    esforco: 0.10           # menor esforço estimado pesa mais (esforco_fator das recomendações)
+    comprovacao: 0.10       # dá para demonstrar num projeto de portfólio
+  max_prioritarias: 5       # NÃO recomenda todas as lacunas: só as N de maior prioridade…
+  prioridade_minima: 0.25   # …e acima deste corte
+  crescimento_pp_maximo: 20 # variação (p.p.) que vale 1,0 no fator crescimento

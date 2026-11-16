@@ -76,6 +76,18 @@ notificacoes:
   max_vagas: 130               # proteção: o Gmail corta e-mails acima de ~102 KB (130 vagas ≈ 92 KB); o excedente é avisado
   enviar_quando_vazio: true    # manda e-mail mesmo sem vagas novas (serve de alarme se a coleta parar)
 
+# Etapa 8: alertas de saúde (jobradar saude; resumo do Actions e rodapé do Radar). Só agregados.
+saude:
+  horas_sem_sucesso: 14
+  taxa_falha_7d_max_pct: 25
+  duracao_max_s: 900
+  cobertura_extracao_min_pct: 50   # % das vagas recentes da fonte com ao menos uma competência técnica
+  cobertura_extracao_min_pct_por_fonte:
+    adzuna: 25                     # a API entrega só um trecho da descrição (~40% com competência é o normal)
+  invalidos_max_pct: 10
+  falhas_seguidas_fonte: 3
+  janela_extracao_dias: 30
+
 retencao:
   bronze_dias: 90              # respostas brutas
   descricao_dias_apos_ultima_observacao: 180

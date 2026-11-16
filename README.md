@@ -89,10 +89,20 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 | Deduplicação por id, URL canônica, chave alternativa entre fontes e republicações | ✅ |
 | Histórico de observações e mudanças de requisitos | ✅ |
 | Status ativa / desconhecida / encerrada com regra documentada | ✅ encerra quando a vaga sai do quadro da empresa no Greenhouse/Lever |
-| Extração de competências (requisito × desejável) | ✅ heurística configurável |
-| Score de aderência explicável e recomendações de estudo | ✅ privados |
+| Extração de competências (requisito × desejável) | ✅ regras versionadas com termos, conceitos e evidência por achado; F1 97% no conjunto-ouro ([ADR 0001](docs/adr/0001-extracao-de-competencias-sem-custo.md)) |
+| Competências comportamentais e idioma | ✅ privadas (fora do público, do score e da gold) |
+| Camada semântica local (embeddings) | ⏸️ implementada e medida; desligada por não trazer ganho significativo |
+| Coocorrência de competências (suporte, confiança, lift, Jaccard) | ✅ privada (CLI e painel) e pública (`skill-trends` 1.1.0); [ADR 0002](docs/adr/0002-coocorrencia-de-competencias.md) |
+| Fila de curadoria e conjunto-ouro | ✅ `jobradar competencias candidatas` · `jobradar avaliacao medir` |
+| Score de aderência explicável e recomendações de estudo | ✅ privados, **por objetivo profissional** |
+| Minha Evolução Profissional: prioridades explicáveis, 7 classes, recomendações e progresso | ✅ privado, por objetivo ([ADR 0004](docs/adr/0004-evolucao-profissional.md)) |
+| Análise do currículo (PDF/DOCX), versões, diagnóstico e sugestões | ✅ só local, fora do git, sem IA ([ADR 0003](docs/adr/0003-curriculo-privado.md)) |
 | Contrato público v1 validado (JSON Schema) | ✅ |
 | Quatro execuções por dia, com reservas e sem duplicar | ✅ a cada 6 h (00, 06, 12 e 18 h em SP) via cron-job.org |
+| **JobRadar — Seu Radar Profissional**: e-mail diário com mercado, perfil, oportunidade e uma ação do dia | ✅ configuração privada, sem repetição ([ADR 0005](docs/adr/0005-radar-profissional.md)) |
+| **Career Intelligence**: radar de mercado, compatibilidade por objetivo, plano e diagnóstico mensal (7 perguntas, com efeito do mercado × do perfil) | ✅ painel privado + e-mail mensal ([ADR 0007](docs/adr/0007-career-intelligence.md)) |
+| **Governança e segurança**: fronteira público × privado testada, score e e-mails no repositório privado, validações registradas, retenção, apagar tudo, saúde da operação | ✅ ([ADR 0008](docs/adr/0008-governanca-seguranca.md), [privacidade](docs/privacidade.md), [rastreabilidade](docs/rastreabilidade.md)) |
+| **Relatório Semanal de Evolução Profissional**: 10 seções, comparações históricas e as 3 principais oportunidades | ✅ e-mail + página privada ([ADR 0006](docs/adr/0006-relatorio-semanal.md)) |
 | E-mail HTML por turno sem repetição, no visual do portfólio | ✅ vagas de ontem e hoje + encontradas atrasadas; 10 cartões e lista compacta |
 | Tela pública de vagas no portfólio | ✅ [santosluzia.com/vagas-engenharia-de-dados](https://santosluzia.com/vagas-engenharia-de-dados) |
 | Candidaturas e progresso de estudos (privado) | ✅ CLI |
@@ -141,7 +151,10 @@ Variáveis de ambiente: veja [`.env.example`](.env.example). O setup do GitHub (
 ## Limitações metodológicas
 
 - **A amostra não é o mercado.** Os números refletem as fontes e os termos configurados. Mudanças de fonte ou de volume alteram proporções; por isso toda análise mostra o `n` e sinaliza amostras pequenas.
-- **Extração por regras.** Competências e senioridade vêm de padrões de texto. A separação requisito/desejável é heurística.
+- **Extração por regras.** Competências e senioridade vêm de padrões de texto e frases-conceito,
+  medidos num conjunto-ouro pequeno (60 vagas, anotação ainda em rascunho). A separação
+  requisito/desejável é heurística. A troca de versão da taxonomia muda o patamar dos percentuais
+  (ver docs/taxonomia.md).
 - **Status de vaga.** Sumir de uma busca (Gupy, Adzuna) não encerra a vaga: ela vira "desconhecida" depois de 14 dias sem observação. Só é "encerrada" com evidência: prazo vencido informado pela fonte, ou a vaga saiu do quadro completo da empresa no Greenhouse/Lever.
 - **Score não é probabilidade.** Ele mede compatibilidade com o perfil declarado. "Sem evidência" significa que a competência não está registrada no perfil, não que a pessoa não a tenha.
 - **Gupy.** O endpoint usado pelo portal público não é uma API documentada. Pode mudar sem aviso; o coletor detecta mudança de formato e a execução registra a falha.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/santosluzia/jobradar/public-data/v1/skill-trends.schema.json",
-  "title": "JobRadar skill-trends (1.0.0)",
+  "title": "JobRadar skill-trends (1.1.0)",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -304,6 +304,142 @@
               "low_sample"
             ]
           }
+        },
+        "co_occurrence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "window_days": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "base": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "min_pair_jobs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "low_sample": {
+              "type": "boolean"
+            },
+            "rank": {
+              "enum": [
+                "jaccard",
+                "lift",
+                "jobs_both"
+              ]
+            },
+            "note": {
+              "type": "string"
+            },
+            "pairs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "skill_a": {
+                    "type": "string"
+                  },
+                  "skill_b": {
+                    "type": "string"
+                  },
+                  "jobs_both": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "jobs_both_required": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "jobs_a": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "jobs_b": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "support_pct": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "confidence_a_b_pct": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "confidence_a_b_ci": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  },
+                  "confidence_b_a_pct": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "confidence_b_a_ci": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  },
+                  "lift": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "jaccard": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "skill_a",
+                  "skill_b",
+                  "jobs_both",
+                  "jobs_both_required",
+                  "jobs_a",
+                  "jobs_b",
+                  "support_pct",
+                  "confidence_a_b_pct",
+                  "confidence_a_b_ci",
+                  "confidence_b_a_pct",
+                  "confidence_b_a_ci",
+                  "lift",
+                  "jaccard"
+                ]
+              }
+            }
+          },
+          "required": [
+            "window_days",
+            "base",
+            "min_pair_jobs",
+            "low_sample",
+            "rank",
+            "note",
+            "pairs"
+          ]
         }
       },
       "required": [
