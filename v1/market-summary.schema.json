@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/santosluzia/jobradar/public-data/v1/market-summary.schema.json",
-  "title": "JobRadar market-summary (1.0.0)",
+  "title": "JobRadar market-summary (1.1.0)",
   "type": "object",
   "additionalProperties": false,
   "properties": {
