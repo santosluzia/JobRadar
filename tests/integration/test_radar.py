@@ -181,3 +181,25 @@ def test_radar_nao_le_a_pasta_privada_local():
     """No CI não existe ~/.jobradar: o Radar só pode usar o RESUMO de níveis que você compartilhou."""
     fonte = (Path(__file__).resolve().parents[2] / "src" / "jobradar" / "notifications" / "radar.py").read_text(encoding="utf-8")
     assert "JOBRADAR_HOME" not in fonte and "versoes" not in fonte and "pasta_privada" not in fonte
+
+
+def test_banco_de_talentos_nunca_vira_oportunidade(radar_lake):
+    """Banco de Talentos é cadastro de currículos, não vaga: o bloco 3 passa para a próxima candidata."""
+    cfg = radar.carregar_config(radar_lake.lake)
+    vazio = Lake(radar_lake.lake).read("private/radar_envios")
+    antes = radar.montar(radar_lake, AGORA, cfg, vazio)["oportunidade"]
+    assert antes, "o cenário precisa ter uma oportunidade para o teste fazer sentido"
+    lake = Lake(radar_lake.lake)
+    jobs = lake.read("silver/jobs")
+    jobs.loc[jobs["job_id"] == antes["job_id"], "titulo"] = "[Banco de Talentos] " + antes["titulo"]
+    lake.write("silver/jobs", jobs)
+    depois = radar.montar(radar_lake, AGORA, cfg, vazio)["oportunidade"]
+    assert depois is None or (depois["job_id"] != antes["job_id"] and not radar.banco_de_talentos(depois["titulo"]))
+
+
+@pytest.mark.parametrize("titulo, esperado", [
+    ("[Banco de Talentos] Engenheiro de Dados", True), ("Banco de talento - Dados", True),
+    ("Data Engineer - Talent Pool", True), ("Talent Community | Analytics", True),
+    ("Engenheiro de Dados Pleno", False), ("Analista de Banco de Dados", False), (None, False)])
+def test_reconhece_banco_de_talentos(titulo, esperado):
+    assert radar.banco_de_talentos(titulo) is esperado
