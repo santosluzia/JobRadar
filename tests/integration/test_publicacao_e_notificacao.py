@@ -144,7 +144,10 @@ def test_progresso_de_estudo(populado):
     atualizar_estudo(lake, "databricks", "em_andamento", inicio="2026-10-01")
     atualizar_estudo(lake, "databricks", "concluido", conclusao="2026-12-10", evidencia="certificado")
     p = lake.read("private/study_progress").iloc[0]
-    assert (p["status"], p["inicio"], p["conclusao"]) == ("concluido", "2026-10-01", "2026-12-10")
+    # Etapa 4: status antigo convertido; curso concluído continua "em estudo", nunca experiência profissional
+    assert (p["status"], p["inicio"], p["conclusao"]) == ("em_estudo", "2026-10-01", "2026-12-10")
+    ev = lake.read("private/study_events")
+    assert list(ev["para"]) == ["em_estudo", "em_estudo"]
 
 
 def _populacao_grande(settings, fake, n_por_janela=35):

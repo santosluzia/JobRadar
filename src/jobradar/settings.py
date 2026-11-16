@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +26,7 @@ class Settings:
     profile: dict[str, Any]
     profile_path: Path | None
     lake: Path
+    evolucao: dict[str, Any] = field(default_factory=dict)   # config/evolucao.yaml (conteúdo de estudo editável)
 
     def env(self, nome: str) -> str | None:
         valor = os.getenv(nome)
@@ -68,4 +69,5 @@ def carregar(lake: str | Path | None = None, config_dir: str | Path | None = Non
         profile=_yaml(perfil_path) if perfil_path else {},
         profile_path=perfil_path,
         lake=lake_path,
+        evolucao=_yaml(cdir / "evolucao.yaml") if (cdir / "evolucao.yaml").exists() else {},
     )

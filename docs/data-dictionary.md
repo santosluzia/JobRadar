@@ -44,6 +44,7 @@ erDiagram
 | chave_alternativa | string | sha1(empresa, título sem ruído, UF), usada para deduplicar entre fontes |
 | canonical_job_id / is_canonica | string / bool | Vaga eleita como representante do grupo de duplicatas (entre fontes ou republicação na mesma fonte) |
 | atualizado_em | timestamp | Última escrita da linha |
+| taxonomia_versao | string | Versão de `config/skills.yaml` com que as competências da vaga foram extraídas (nulo = 1.0.0). `jobradar reextrair` usa esta coluna |
 
 ## silver/job_skills
 
@@ -51,8 +52,30 @@ erDiagram
 |---|---|
 | job_id, skill_id | Vaga e competência (id em `config/skills.yaml`) |
 | importancia | `requisito` ou `desejavel` (heurística de seções) |
-| termo | Trecho do texto que casou com o padrão, como evidência da extração |
-| run_id | Execução que extraiu |
+| termo | Trecho normalizado que casou com o padrão |
+| run_id | Execução (ou reextração) que extraiu |
+| metodo | `termo` (nome ou sinônimo) ou `conceito` (frase que implica a competência). Nulo nas linhas da 1.0.0 = termo |
+| evidencia | Frase **original** da vaga que justifica o achado (até 240 caracteres, recortada em volta do trecho). Apagada junto com a descrição pela retenção |
+| confianca | `alta` (termo) ou `media` (conceito). Rótulo do método, não probabilidade: a precisão medida está no ADR 0001 |
+| tipo | `tecnica`, `comportamental` ou `idioma`. Só `tecnica` alimenta gold, score, e-mail e dados públicos (nulo = técnica) |
+| taxonomia_versao | Versão da taxonomia que gerou a linha |
+| posicoes | JSON `[[frase, início, fim], ...]` com TODAS as menções da competência nas frases que contam (texto normalizado). Usado para a coocorrência não contar a mesma menção como par |
+
+## silver/job_skills_semantica — camada de embeddings local (desligada por padrão)
+
+Uma linha por achado semântico, só para competências que as regras **não** acharam na vaga. Uma vaga
+processada sem achado tem uma linha com `skill_id` nulo (evita reprocessar). Só entra em gold, score e
+dados públicos com `extracao.gold_hibrida: true`.
+
+| Coluna | Descrição |
+|---|---|
+| job_id, skill_id, importancia, tipo | Como em `silver/job_skills` |
+| evidencia | Frase da vaga mais parecida com as âncoras da competência |
+| similaridade, limiar | Cosseno da frase com a melhor âncora e limiar usado para aceitar |
+| confianca | `media` (similaridade ≥ `limiar_media`) ou `baixa` |
+| modelo, modelo_revisao | Repositório e commit fixo do modelo (rastreabilidade) |
+| taxonomia_versao, descricao_hash | Configuração e texto processados: mudou algum, a vaga volta a ficar pendente |
+| run_id, calculado_em | Execução |
 
 ## silver/observations — uma linha por vaga por execução
 
@@ -72,7 +95,27 @@ erDiagram
 | vagas_com_skill / vagas_requisito | Vagas canônicas que citam a competência / que a citam como requisito |
 | total_vagas | Total de vagas canônicas do grupo no mês |
 
-## gold/job_scores
+Nas linhas `skill_id = "__total__"`, `vagas_com_competencia` é o número de vagas do grupo com ao menos
+uma competência técnica: a base da coocorrência (nulo nas outras linhas).
+
+## gold/skill_pairs — coocorrência, agregado incremental
+
+| Coluna | Descrição |
+|---|---|
+| mes, familia, senioridade | Coorte (mês da primeira observação, fuso de São Paulo) e segmento, como em `skill_monthly` |
+| skill_a, skill_b | Par de competências técnicas, sempre `skill_a < skill_b` |
+| vagas_par | Vagas canônicas com as duas (mesma menção não conta; ver ADR 0002) |
+| vagas_par_requisito | Vagas com as duas como requisito |
+
+Recalculada nos mesmos meses que `skill_monthly`. As contagens podem ser somadas entre meses e segmentos;
+as métricas (suporte, confiança, lift, Jaccard) são calculadas na leitura, em `analytics/coocorrencia.py`.
+
+## gold/job_scores — uma linha por vaga e objetivo do perfil
+
+Score de aderência explicável (0–100) e lacunas. `objetivo_id` = objetivo do perfil (Etapa 3); nulo em
+linhas antigas, de quando o perfil tinha um objetivo só. Listas e e-mail usam a linha do melhor objetivo
+de cada vaga (`scoring.melhor_por_vaga`); a análise por objetivo filtra `objetivo_id`.
+
 
 `job_id`, `score` (0–100), `explicacao` (json com critério, pontos, máximo e detalhe), `lacunas` (json), `sem_evidencia` (json), `calculado_em`, `perfil_hash`.
 
@@ -80,6 +123,12 @@ erDiagram
 
 - **runs:** `run_id`, `iniciada_em`, `finalizada_em`, `status` (sucesso · parcial · falha), `duracao_s`, `metricas` (json completo do relatório).
 - **source_runs:** `run_id`, `source`, `ok`, `coletados`, `validos`, `invalidos`, `duplicatas_fonte`, `novas`, `requisicoes`, `retentativas`, `erros`, `finalizada_em`.
+
+## meta/validacoes e private/validacoes
+
+Uma linha por artefato validado em cada execução (docs/rastreabilidade.md): `run_id`, `artefato`
+(`contrato_publico` · `taxonomia` em meta; `perfil` · `radar_config` em private), `versao`, `ok`, `erros`
+(quantidade), `detalhe` (curto e mascarado; para o perfil, só o campo, nunca o valor), `em`.
 
 ## meta/notifications
 
@@ -91,5 +140,22 @@ erDiagram
 |---|---|
 | applications | job_id, status (nova · salva · revisar_curriculo · candidatado · entrevista · recusada · encerrada), atualizado_em, observacoes |
 | application_events | job_id, de, para, em, nota |
-| study_progress | skill_id, status (planejado · em_andamento · concluido · pausado), inicio, conclusao, evidencia, atualizado_em |
+| study_progress | skill_id, status (nao_iniciada · em_estudo · em_pratica · demonstrada_em_projeto · comprovada_profissional · pausada; os antigos planejado/em_andamento/concluido/pausado são convertidos), inicio, conclusao, evidencia, atualizado_em. Entra no **perfil efetivo** (ADR 0004) |
+| study_events | skill_id, de, para, em, evidencia, nota — histórico de cada mudança de progresso |
+| radar_envios | data (SP), objetivo_id, enviado_em, run_id, status (enviado · falha), assunto, vagas, acao_tipo, acao_skill, acao_texto, chaves (itens já apontados, contra repetição), erro — um registro por Radar diário |
+| diagnosticos_mensais | mes, objetivo_id, gerado_em, run_id, status (gerado · enviado · falha), retrato (JSON: aderências, demanda, níveis, classes, prioritárias, projetos — só agregados e níveis), erro |
+| relatorios_semanais | semana (ISO), objetivo_id, enviado_em, run_id, status, assunto, oportunidades (as 3, JSON), resumo (métricas para comparar com a semana seguinte), erro |
+| radar.yaml | Configuração privada do Radar e do Relatório Semanal (seção `semanal`; modelo: `config/radar.example.yaml`) |
+| curriculo_resumos_historico.json | Opcional, por adesão: um resumo de níveis por versão do currículo (comparação de versões no relatório semanal) |
+| curriculo_resumo.json | **Opcional, por adesão**: só `{competência: nível}` do currículo, para o Radar no CI. Sem texto. `jobradar curriculo remover-resumo` apaga |
 | profile.yaml | Perfil profissional (ver `config/profile.example.yaml`) |
+| validacoes | run_id, artefato (perfil · radar_config), versao, ok, erros, detalhe, em — ver meta/validacoes |
+
+**Fora do lake** (só na sua máquina, em `$JOBRADAR_HOME`, padrão `~/.jobradar`, nunca no git):
+`curriculo/versoes/*.json` (versões estruturadas do currículo, com o texto extraído),
+`curriculo/diagnosticos/*.json` (histórico de diagnósticos e sugestões por objetivo),
+`evolucao/*.json` (planos de evolução salvos) e, só se você pedir,
+`curriculo/originais/`. Ver docs/adr/0003-curriculo-privado.md.
+
+`avaliacao/conjunto_ouro.yaml` (privado) guarda o conjunto-ouro da extração: texto das vagas e
+anotações. Ver docs/avaliacao.md.

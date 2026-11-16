@@ -1,0 +1,177 @@
+# Conteúdo de apoio do plano "Minha Evolução Profissional" (Etapa 4) — SUGESTÃO EDITÁVEL.
+# Escrito como ponto de partida, NÃO é dado observado nas vagas. Ajuste à vontade: o plano mostra
+# este texto rotulado como sugestão, ao lado dos números que vêm das vagas.
+#
+# Por competência técnica (id de config/skills.yaml):
+#   estudar:   tópicos, do básico ao que as vagas costumam pedir
+#   projeto:   ideia de projeto pequeno e público que demonstre a competência
+#   evidencia: como mostrar no currículo DEPOIS de fazer (nunca antes)
+# O plano completa o projeto com as competências que você já tem e que aparecem junto nas vagas.
+
+versao: "1.0.0"
+
+competencias:
+  python:
+    estudar: [estruturas de dados e funções, pandas para tratamento de dados, testes com pytest, empacotamento e ambientes virtuais]
+    projeto: coletor que lê uma API pública, trata os dados com pandas e grava em Parquet, com testes
+    evidencia: em Projetos, link do repositório e o que o código faz; em Experiência, só se usou no trabalho
+  sql:
+    estudar: [joins e agregações, funções de janela, CTEs, otimização com plano de execução, modelagem relacional]
+    projeto: conjunto de consultas analíticas sobre uma base pública, com funções de janela e explicação de desempenho
+    evidencia: cite SQL pelo nome nas experiências em que escreveu consultas, procedures ou views
+  scala:
+    estudar: [sintaxe e coleções imutáveis, programação funcional, Spark com Scala]
+    projeto: job Spark em Scala que agrega um dataset público e grava o resultado particionado
+    evidencia: em Projetos, link e a descrição do job
+  java:
+    estudar: [orientação a objetos, coleções e streams, build com Maven ou Gradle, testes com JUnit]
+    projeto: serviço pequeno que consome um arquivo de dados e expõe um resumo por API
+    evidencia: em Projetos, link e as bibliotecas usadas
+  spark:
+    estudar: [DataFrames e Spark SQL, particionamento e shuffle, joins e broadcast, leitura e escrita em Parquet e Delta]
+    projeto: pipeline PySpark local (ou Databricks Community) que limpa e agrega um dataset público grande
+    evidencia: em Projetos, volume tratado e as transformações; em Experiência, só se usou no trabalho
+  processamento_distribuido:
+    estudar: [conceitos de computação distribuída, particionamento de dados, engines como Spark e Trino, custo e paralelismo]
+    projeto: comparação de tempo de uma mesma agregação em pandas e em Spark sobre um dataset grande
+    evidencia: descreva o volume e a ferramenta; evite "big data" sem dizer o quê
+  databricks:
+    estudar: [notebooks e jobs, Delta Lake, Unity Catalog, Workflows, arquitetura medalhão]
+    projeto: camadas bronze, prata e ouro no Databricks Community Edition com um dataset público
+    evidencia: em Projetos, as camadas e as tabelas Delta; certificação vai em Certificações, não em Experiência
+  kafka:
+    estudar: [tópicos, partições e consumidores, garantias de entrega, Kafka Connect, processamento em tempo real]
+    projeto: produtor e consumidor locais (Docker) que processam eventos simulados e gravam agregados
+    evidencia: em Projetos, o fluxo de eventos e a garantia de entrega usada
+  etl:
+    estudar: [ETL × ELT, cargas incrementais, idempotência, tratamento de erros e reprocessamento, orquestração]
+    projeto: pipeline incremental com reprocessamento seguro (rodar duas vezes não duplica), com testes
+    evidencia: use o termo "ETL/ELT" ou "pipelines de dados" e descreva fontes, destino e frequência
+  airflow:
+    estudar: [DAGs e operadores, agendamento e retries, sensores, XCom, boas práticas de idempotência]
+    projeto: DAG local (Docker) que orquestra extração, transformação e checagem de qualidade
+    evidencia: em Projetos, o que a DAG orquestra e como trata falhas
+  dbt:
+    estudar: [models e sources, materializações, testes, documentação, incremental models]
+    projeto: projeto dbt sobre DuckDB ou Postgres com testes e documentação gerada
+    evidencia: em Projetos, os models, testes e o link da documentação
+  data_factory:
+    estudar: [pipelines e atividades, linked services e datasets, integração com ADLS e Synapse, monitoramento]
+    projeto: pipeline no Azure (conta gratuita) que copia dados de uma fonte pública para o ADLS
+    evidencia: em Projetos, as atividades e a fonte; cuidado com custos da conta
+  azure:
+    estudar: [ADLS, Data Factory, Synapse ou Fabric, identidade e acesso, custos]
+    projeto: armazenamento e pipeline simples na camada gratuita do Azure, com controle de custo
+    evidencia: cite os serviços usados, não só "Azure"
+  aws:
+    estudar: [S3, Glue, Athena, IAM, Lambda, custos]
+    projeto: dados em S3 consultados com Athena e catalogados no Glue, na camada gratuita
+    evidencia: cite os serviços usados, não só "AWS"
+  gcp:
+    estudar: [BigQuery, Cloud Storage, Dataflow ou Dataproc, Composer, IAM]
+    projeto: dataset público no BigQuery com consultas e uma tabela particionada
+    evidencia: cite BigQuery e os demais serviços usados
+  data_warehouse:
+    estudar: [modelagem dimensional, fatos e dimensões, cargas incrementais, particionamento, custo de consulta]
+    projeto: pequeno data warehouse dimensional (DuckDB ou Postgres) a partir de um dataset público
+    evidencia: descreva as tabelas fato e dimensão e para que servem
+  data_lake:
+    estudar: [arquitetura medalhão, formatos Parquet, Delta e Iceberg, particionamento, catálogo]
+    projeto: lake local em camadas (bronze, prata, ouro) em Parquet, com retenção e reprocessamento
+    evidencia: em Projetos, as camadas e o formato
+  modelagem:
+    estudar: [modelagem relacional e dimensional, Kimball, star schema, SCD tipo 2, data vault (noções)]
+    projeto: modelo dimensional com uma dimensão SCD tipo 2 e o diagrama no README
+    evidencia: cite o tipo de modelagem e o objetivo do modelo
+  snowflake:
+    estudar: [warehouses virtuais, stages e COPY, time travel, custos, integração com dbt]
+    projeto: carga e modelagem de um dataset no trial do Snowflake, com dbt
+    evidencia: em Projetos; atenção ao período de trial
+  nosql:
+    estudar: [modelos documento, chave-valor e colunar, quando usar cada um, MongoDB básico]
+    projeto: API pequena que grava e consulta documentos no MongoDB local
+    evidencia: cite o banco e o caso de uso
+  oracle:
+    estudar: [PL/SQL, procedures e functions, otimização, particionamento]
+    projeto: procedures em Oracle XE sobre uma base de exemplo
+    evidencia: cite Oracle e PL/SQL nas experiências em que usou
+  postgres:
+    estudar: [tipos e índices, EXPLAIN, extensões, replicação básica]
+    projeto: banco Postgres local com índices justificados por EXPLAIN
+    evidencia: cite PostgreSQL e o que você fez nele
+  redis:
+    estudar: [estruturas de dados, cache e expiração, filas simples]
+    projeto: cache de respostas de uma API com Redis e medição do ganho
+    evidencia: em Projetos, o caso de uso
+  opensearch:
+    estudar: [índices e mapeamentos, consultas, agregações, ingestão]
+    projeto: busca textual sobre um conjunto de documentos públicos
+    evidencia: em Projetos, o índice e as consultas
+  qualidade_dados:
+    estudar: [dimensões de qualidade, testes de dados, contratos de dados, Great Expectations ou testes do dbt, monitoramento]
+    projeto: checagens de qualidade automáticas num pipeline, com relatório do que falhou
+    evidencia: descreva as regras de qualidade e o que acontece quando falham
+  governanca:
+    estudar: [catálogo e linhagem, papéis e responsabilidades, políticas de acesso, metadados, LGPD]
+    projeto: dicionário de dados e linhagem documentados para um pipeline próprio
+    evidencia: cite catálogo, linhagem ou políticas que você definiu ou manteve
+  lgpd:
+    estudar: [bases legais, dados pessoais e sensíveis, minimização, anonimização e pseudonimização]
+    projeto: pipeline que separa dados pessoais e publica só agregados, com testes
+    evidencia: descreva a medida de privacidade aplicada
+  git:
+    estudar: [branches e merges, rebase, pull requests, boas mensagens de commit]
+    projeto: qualquer projeto público com histórico de commits organizado e pull requests
+    evidencia: o link do GitHub já é a evidência
+  docker:
+    estudar: [imagens e containers, Dockerfile, volumes, docker compose]
+    projeto: ambiente do pipeline em docker compose (banco, orquestrador, app)
+    evidencia: em Projetos, o que roda em containers
+  kubernetes:
+    estudar: [pods, deployments e services, configmaps e secrets, jobs e cronjobs]
+    projeto: job em cluster local (kind ou minikube) que roda o pipeline agendado
+    evidencia: em Projetos, os recursos usados
+  cicd:
+    estudar: [integração contínua, testes automatizados, GitHub Actions, deploy automatizado]
+    projeto: workflow que roda testes e publica artefatos a cada push
+    evidencia: cite o que o pipeline de CI/CD faz
+  linux:
+    estudar: [linha de comando, permissões, shell script, processos e agendamento]
+    projeto: scripts shell que automatizam tarefas do pipeline
+    evidencia: cite o uso de Linux e shell nas experiências
+  observabilidade:
+    estudar: [logs, métricas e alertas, Prometheus e Grafana, SLAs de pipelines]
+    projeto: painel Grafana com métricas de execução de um pipeline
+    evidencia: descreva o que era monitorado e os alertas
+  terraform:
+    estudar: [providers e recursos, estado, módulos, plan e apply]
+    projeto: infraestrutura mínima (bucket e permissões) declarada em Terraform
+    evidencia: em Projetos, os recursos declarados
+  apis:
+    estudar: [REST, autenticação, paginação, limites de taxa, retries]
+    projeto: coletor que consome uma API paginada com retry e respeito a limites
+    evidencia: cite as integrações por API que você construiu
+  spring_boot:
+    estudar: [controllers, injeção de dependência, JPA, testes]
+    projeto: API Spring Boot que expõe dados agregados
+    evidencia: em Projetos, os endpoints
+  ia_ml:
+    estudar: [aprendizado supervisionado, avaliação de modelos, scikit-learn, MLOps básico, LLMs e RAG (noções)]
+    projeto: modelo simples de classificação com avaliação honesta e pipeline reprodutível
+    evidencia: descreva o problema, o dado e a métrica; "usar ferramentas de IA" não é construir modelos
+  estatistica:
+    estudar: [estatística descritiva, inferência e testes de hipótese, regressão, testes A/B]
+    projeto: análise com teste de hipótese sobre um dataset público, com conclusão e limitações
+    evidencia: descreva a análise feita; formação em Estatística vai em Formação
+  excel:
+    estudar: [tabelas dinâmicas, PROCX e funções lógicas, Power Query, gráficos]
+    projeto: planilha de indicadores com Power Query sobre dados públicos
+    evidencia: cite o uso de Excel avançado nas experiências
+  power_bi:
+    estudar: [modelagem no Power BI, DAX, Power Query, publicação e permissões]
+    projeto: dashboard publicado com modelo estrela e medidas DAX documentadas
+    evidencia: link do relatório publicado e as medidas criadas
+  looker_tableau:
+    estudar: [modelagem semântica, LookML ou Tableau Prep, dashboards e permissões]
+    projeto: dashboard no Looker Studio ou Tableau Public sobre um dataset público
+    evidencia: link público do dashboard

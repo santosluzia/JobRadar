@@ -1,0 +1,9 @@
+# Painel PRIVADO: só nesta máquina, sem telemetria (Etapa 8 — docs/privacidade.md).
+[server]
+address = "localhost"        # sem isto o Streamlit escuta em todas as interfaces (qualquer um na rede abriria o painel)
+headless = true
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false     # o Streamlit envia estatísticas de uso por padrão
+serverAddress = "localhost"

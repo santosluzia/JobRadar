@@ -8,7 +8,7 @@ Interface estável entre o JobRadar (produtor) e o portfólio [santosluzia.com](
 |---|---|---|
 | `manifest.json` | Índice: versão, data de geração, run_id e, por arquivo, sha256, registros e bytes | [manifest.schema.json](v1/manifest.schema.json) |
 | `market-summary.json` | Totais, distribuições, qualidade e última execução bem-sucedida | [market-summary.schema.json](v1/market-summary.schema.json) |
-| `skill-trends.json` | Taxonomia, frequência atual, série mensal e recorte por senioridade | [skill-trends.schema.json](v1/skill-trends.schema.json) |
+| `skill-trends.json` | Taxonomia, frequência atual, série mensal, recorte por senioridade e (1.1.0) coocorrência | [skill-trends.schema.json](v1/skill-trends.schema.json) |
 | `jobs.json` | Até 300 vagas relevantes dos últimos 30 dias, com links | [jobs.schema.json](v1/jobs.schema.json) |
 
 Os schemas também são publicados ao lado dos dados (`v1/*.schema.json`).
@@ -47,6 +47,27 @@ Todos os arquivos de dados têm a mesma estrutura externa:
 - **Amostra:** `low_sample: true` quando o denominador está abaixo de `min_sample` (30). O frontend deve exibir esses pontos com aviso.
 - **URLs** de vaga são sempre `https://`, a URL original da fonte, para candidatura manual.
 
+## Coocorrência (`skill-trends.data.co_occurrence`, desde 1.1.0, opcional)
+
+Pares de competências técnicas que aparecem juntas nas vagas das famílias de dados, na mesma janela de
+`current`. Decisão e método: [ADR 0002](../adr/0002-coocorrencia-de-competencias.md).
+
+| Campo | Significado |
+|---|---|
+| `base` | Vagas com ao menos uma competência técnica (denominador) |
+| `min_pair_jobs`, `low_sample` | Mínimo de vagas juntas para publicar um par; `low_sample: true` = base abaixo de `min_sample` (e `pairs` vazio) |
+| `rank` | Ordem da lista (`jaccard`) |
+| `pairs[].jobs_both`, `jobs_both_required` | Vagas com as duas; com as duas como requisito |
+| `pairs[].jobs_a`, `jobs_b` | Vagas com cada uma |
+| `support_pct` | `jobs_both / base` |
+| `confidence_a_b_pct` (+ `_ci`) | `jobs_both / jobs_a`: "das que pedem A, quantas pedem B", com intervalo de Wilson 95% |
+| `confidence_b_a_pct` (+ `_ci`) | O mesmo, no outro sentido (a confiança é assimétrica) |
+| `lift` | `> 1`: aparecem juntas mais do que se fossem independentes |
+| `jaccard` | Sobreposição simétrica (0–1) |
+
+É **associação na amostra**, não causa: exiba como "aparecem juntas", nunca como "quem aprende A precisa de B".
+Menções do mesmo produto ("Azure Data Factory", "PySpark") não contam como par.
+
 ## O que nunca é publicado
 
 Descrições de vagas, respostas brutas, perfil profissional, score de aderência, lacunas, recomendações pessoais, candidaturas, observações pessoais, registro de notificações e credenciais.
@@ -59,6 +80,11 @@ Descrições de vagas, respostas brutas, perfil profissional, score de aderênci
 | Remover, renomear, mudar tipo ou ampliar um enum | major (`2.0.0`) | novo `v2/`, publicado **em paralelo** com `v1/` até o site migrar |
 
 O consumidor deve ler `schema_version`, aceitar qualquer `1.x` e ignorar campos que não conhece.
+
+| Versão | Mudança |
+|---|---|
+| 1.0.0 | Primeira versão |
+| 1.1.0 | `skill-trends.data.co_occurrence` (opcional). Documentos 1.0.0 continuam válidos |
 
 ## Garantias de publicação
 

@@ -84,12 +84,138 @@ Use **Test run**: a resposta esperada é `204 No Content`, e em Actions aparece 
 
 Não há custo previsto. A dependência externa crítica é o formato do endpoint da Gupy.
 
+A extração de competências não usa API paga nem envia texto a terceiros (ADR 0001). A camada
+semântica opcional roda local. Se for ligada, o modelo (~530 MB) é baixado uma vez do Hugging Face por
+revisão fixa. Nesse caso, ponha `JOBRADAR_MODEL_CACHE` num `actions/cache`. Enquanto desligada, o CI
+não instala `.[semantica]`.
+
+## 6.2 Currículo (privado, só local)
+
+```bash
+pip install -e ".[curriculo]"                       # pypdf + python-docx, versões fixas
+jobradar curriculo importar ~/Documentos/cv.pdf --nota "versão de novembro"
+jobradar curriculo mostrar                          # o que foi entendido (⚠️ = revisar empresa/cargo)
+jobradar curriculo exportar > cv.json               # editar à mão e…
+jobradar curriculo importar cv.json                 # …salvar como nova versão
+jobradar curriculo comparar                         # duas últimas versões
+jobradar curriculo diagnostico --objetivo engenharia_dados --salvar
+jobradar curriculo historico
+jobradar curriculo apagar --versao <id>             # ou --tudo
+```
+
+- **Onde ficam os dados:** em `$JOBRADAR_HOME` (padrão `~/.jobradar`), **fora do git**. A pasta se recusa
+  a ficar dentro de um repositório. Faça backup por conta própria, se quiser (por exemplo, cópia
+  criptografada); por decisão, ela não vai para o `jobradar-data`.
+- **No painel:** a página **Meu currículo** faz o mesmo (importar, revisar e corrigir, versões e diagnóstico).
+- **Objetivos profissionais:** ficam no `profile.yaml`, em `objetivos:` (veja
+  `config/profile.example.yaml`). Ao mudar o perfil, a próxima execução recalcula os scores de todos
+  os objetivos.
+
+## 6.3 Minha Evolução Profissional (privado)
+
+```bash
+jobradar evolucao plano --objetivo engenharia_dados          # prioridades, classes e recomendações
+jobradar evolucao plano --salvar                             # guarda no histórico local
+jobradar evolucao progresso aws em_estudo
+jobradar evolucao progresso aws demonstrada_em_projeto --evidencia "github.com/voce/projeto-aws"
+jobradar evolucao historico
+```
+
+- **Progresso:** fica no `jobradar-data` (`private/study_progress`). Faça commit e push para a próxima
+  execução recalcular os scores.
+- **Sem evidência:** "demonstrada em projeto" e "comprovada em experiência" contam como em desenvolvimento
+  até você registrar a evidência.
+- **Conteúdo de estudo:** "o que estudar", "projeto" e "como mostrar no currículo" vêm de
+  `config/evolucao.yaml`. É sugestão editável.
+- **Pesos e corte de prioritárias:** `config/scoring.yaml → evolucao`.
+
+## 6.4 Radar Profissional (e-mail diário)
+
+```bash
+jobradar radar --dry-run --html-out radar.html   # prévia: não envia nem registra
+jobradar radar --forcar                          # envia agora, ignorando horário e duplicidade
+jobradar curriculo compartilhar-resumo           # opcional: só competência → nível, para o Radar no CI
+jobradar curriculo remover-resumo
+```
+
+- **Configuração:** copie `config/radar.example.yaml` para `jobradar-data/private/radar.yaml` e faça commit e
+  push. Campos: ativo, horário (turno), dias da semana, frequência, objetivo e limites. Sem o arquivo, o
+  Radar sai todo dia às 06:00 no lugar do e-mail da manhã; para manter o e-mail antigo, use `ativo: false`.
+- **No workflow:** o passo "Enviar e-mail" passa `--turno`; o `notify` decide entre o Radar e o alerta de vagas.
+- **Falha de envio:** fica registrada em `private/radar_envios` como `falha`, e o próximo turno do mesmo dia tenta de novo.
+
+## 6.5 Relatório Semanal
+
+```bash
+jobradar semanal --dry-run --html-out semanal.html   # prévia: não envia nem registra
+jobradar semanal --forcar                            # envia agora
+```
+
+- **Configuração:** seção `semanal:` do `private/radar.yaml` (ativo, dia, horário, objetivo, limite). O padrão
+  é segunda 12:00, num e-mail separado do Radar.
+- **Comparação de versões do currículo no CI:** compartilhe o resumo a cada versão nova
+  (`jobradar curriculo compartilhar-resumo`).
+- **Consulta:** página "Relatório semanal" do painel, que gera o relatório sob demanda e mostra o histórico.
+
+## 6.6 Diagnóstico mensal
+
+```bash
+jobradar mensal --dry-run --html-out mensal.html   # prévia: não grava nem envia
+jobradar mensal --forcar                           # grava o retrato do mês e envia agora
+```
+
+- **Configuração:** seção `mensal:` do `private/radar.yaml` (ativo, dia, horário). O retrato do mês é gravado
+  sempre, mesmo com o e-mail desativado, porque é o histórico.
+- **Consulta:** painel → Career Intelligence → Diagnóstico mensal. "Minha compatibilidade" compara objetivos e
+  versões do currículo.
+
+## 6.1 Extração de competências: comandos
+
+| Comando | Para quê |
+|---|---|
+| `jobradar reextrair` | Reaplica a taxonomia atual às vagas com descrição numa versão antiga (roda em toda execução do workflow; `--todas` força tudo) |
+| `jobradar competencias candidatas` | Fila de curadoria: termos que a taxonomia não cobre |
+| `jobradar avaliacao amostrar` / `medir` | Conjunto-ouro privado e precisão/recall (docs/avaliacao.md) |
+| `jobradar coocorrencia [--skill X] [--familia F] [--senioridade S] [--dias 90]` | Competências que aparecem juntas (ADR 0002) |
+| `jobradar enriquecer` | Camada semântica local nas vagas pendentes (requer `pip install -e ".[semantica]"` e `extracao.semantica.ativa: true`, ou `--forcar`) |
+
+**Ao publicar uma versão nova da taxonomia:**
+1. A próxima execução do workflow reextrai o histórico (~30 s para ~8 mil vagas).
+2. Os percentuais públicos de skill-trends mudam de patamar. Na 2.0.0, por exemplo, qualidade de
+   dados passou de 7,4% para 18,3% das vagas de dados. É melhora da medição, não mudança do
+   mercado: explique no portfólio, se os números forem exibidos.
+
+## 6.7 Privacidade, segurança e saúde (Etapa 8)
+
+- **Parte pessoal no repositório privado:** passo a passo em [docs/privacidade.md](privacidade.md), seção 2
+  (variável `JOBRADAR_NOTIFICACAO_PRIVADA` nos dois repositórios, secrets SMTP no `jobradar-data`).
+- **Retenção e apagamento:**
+
+  ```bash
+  jobradar privacidade limpar                     # 12 versões de currículo, 24 meses de diagnósticos/planos
+  jobradar privacidade apagar-tudo --confirmar    # pasta local inteira + resumo do currículo no lake
+  ```
+
+- **Saúde da operação:** `jobradar saude` (também no resumo do Actions, na Visão geral e no rodapé do
+  Radar quando há alerta). Limites em `config/sources.yaml → saude`; detalhes em
+  [docs/rastreabilidade.md](rastreabilidade.md).
+- **Atualizar uma action fixada por SHA:**
+
+  ```bash
+  gh api repos/actions/checkout/git/ref/tags/v4.4.0 --jq .object.sha
+  ```
+
+  Troque o SHA e o comentário de versão nos dois workflows. Se `.object.type` for `tag`, resolva mais
+  uma vez em `git/tags/<sha>`.
+
 ## 7. Painel privado
 
 ```bash
 cd ../jobradar-data && git pull          # traz o histórico gerado pelo Actions
 cd ../jobradar && streamlit run app/main.py
 ```
+
+O painel só escuta em `localhost` e não envia telemetria (`.streamlit/config.toml`).
 
 Candidaturas e progresso de estudos registrados no painel são gravados em `jobradar-data/private/`. Faça `git commit` e `git push` no `jobradar-data` depois de usar o painel, para que a próxima execução do Actions não sobrescreva seus registros. O workflow tenta `pull --rebase` antes de desistir do push.
 
@@ -101,4 +227,9 @@ Candidaturas e progresso de estudos registrados no painel são gravados em `jobr
 | Muitos inválidos | `silver/quality_issues` (o formato da fonte pode ter mudado) |
 | Site sem atualizar | Passo "Gerar e validar contrato" (erro de schema) e data em `manifest.json` |
 | E-mail não chegou | Passo "Enviar e-mail". Nada é registrado em caso de falha, e as vagas voltam na próxima execução |
-| Vagas repetidas no e-mail | Não deve ocorrer; verifique se o passo "Persistir registro de notificações" falhou |
+| Vagas repetidas no e-mail | Não deve ocorrer; verifique se o passo "Persistir registros da execução" (ou "Persistir" do workflow privado) falhou |
+| E-mail parou depois de ligar a variável | Workflow "Parte pessoal" no `jobradar-data`: a variável precisa existir lá também, e os secrets SMTP também |
+| Alerta de saúde | `jobradar saude`; cada alerta aponta a fonte, a taxa ou a validação |
+| Validação falhou | `meta/validacoes` (contrato, taxonomia) e `private/validacoes` (perfil, radar.yaml) |
+| Competência estranha numa vaga | `silver/job_skills.evidencia` mostra a frase que gerou o achado, e `metodo` mostra se foi termo ou conceito. Ajuste a regra, suba a versão e meça (docs/taxonomia.md) |
+| Taxonomia não carrega | Erro de validação Pydantic aponta o campo. Cuidado com `no`/`on` sem aspas e com `\b` entre aspas duplas (escreva `\\b`) |

@@ -1,19 +1,36 @@
 # Perfil profissional — MODELO.
 # O perfil real é privado: fica em <lake>/private/profile.yaml (repositório jobradar-data)
 # ou em config/profile.yaml local (ignorado pelo git). Nunca é publicado.
+# O CURRÍCULO não fica aqui: é importado com `jobradar curriculo importar` (ou no painel) e
+# guardado só na sua máquina, em ~/.jobradar (fora do git).
 #
-# Níveis de evidência:
+# objetivos: cada um tem vagas-alvo, score e diagnóstico PRÓPRIOS (cargos diferentes não se misturam
+#            numa nota só). O formato antigo, com um único `objetivo:`, continua aceito.
+#   familias:     engenharia_dados · analytics_engineering · desenvolvimento_dados · analise_dados ·
+#                 governanca_qualidade · outra
+#   senioridades: estagio · junior · pleno · senior · lideranca
+#   modalidades:  remoto · hibrido · presencial
+#
+# competencias: suas (valem para todos os objetivos). Níveis de evidência:
 #   profissional        usado em trabalho remunerado
 #   projeto             usado em projeto pessoal, acadêmico ou de portfólio
-#   em_desenvolvimento  estudando / em curso
+#   em_desenvolvimento  estudando / em curso (curso concluído não é experiência profissional)
 #   nao_dominada        sabe que não domina
 # Competência ausente da lista = "sem_evidencia" (o sistema não presume que você não sabe).
 
-objetivo:
-  familias: [engenharia_dados, analytics_engineering]
-  senioridades: [junior, pleno]
-  modalidades: [remoto, hibrido]
-  locais: {ufs: [SP], cidades: [sao paulo]}
+objetivos:
+  - id: engenharia_dados
+    nome: Engenharia de Dados
+    familias: [engenharia_dados, analytics_engineering, desenvolvimento_dados]
+    senioridades: [junior, pleno]
+    modalidades: [remoto, hibrido]
+    locais: {ufs: [SP], cidades: [sao paulo]}
+  - id: governanca
+    nome: Governança de Dados
+    familias: [governanca_qualidade]
+    senioridades: [junior, pleno]
+    modalidades: [remoto, hibrido]
+    locais: {ufs: [SP], cidades: [sao paulo]}
 
 competencias:
   - skill: sql

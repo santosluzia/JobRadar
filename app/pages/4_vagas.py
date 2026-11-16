@@ -85,7 +85,7 @@ def tabela(vagas: pd.DataFrame) -> None:
     if vagas.empty:
         st.info("Nenhuma vaga com esses filtros.")
     else:
-        st.dataframe(vagas[COLUNAS], hide_index=True, use_container_width=True, column_config=CONFIG)
+        st.dataframe(vagas[COLUNAS], hide_index=True, width="stretch", column_config=CONFIG)
 
 
 if agrupar and not v.empty:

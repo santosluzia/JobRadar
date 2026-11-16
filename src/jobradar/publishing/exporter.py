@@ -16,7 +16,7 @@ import pandas as pd
 from jsonschema import Draft202012Validator, FormatChecker
 
 from .. import __version__
-from ..analytics import market
+from ..analytics import coocorrencia, market
 from ..analytics.selection import relevantes
 from ..settings import Settings
 from ..storage import Lake
@@ -49,10 +49,37 @@ def _contagem(itens: list[dict]) -> list[dict]:
     return [{"value": i["valor"], "jobs": i["vagas"], "pct": i["percentual"]} for i in itens]
 
 
+NOTA_COOCORRENCIA = ("Pares de competências que aparecem juntas nas mesmas vagas da amostra (associação, não "
+                     "causa). Base: vagas com ao menos uma competência técnica identificada. Menções do mesmo "
+                     "produto (ex.: \"Azure Data Factory\") não contam como par.")
+
+
+def _coocorrencia(snap: market.Snapshot, mascara: pd.Series, janela_dias: int, min_n: int,
+                  cfg: dict[str, Any]) -> dict[str, Any]:
+    min_par = int(cfg.get("min_vagas_par", 10))
+    ordem = cfg.get("ordem_publica", "jaccard")
+    tab = coocorrencia.janela(snap.canonicas, snap.skills, mascara.reindex(snap.canonicas.index, fill_value=False),
+                              min_par, min_n)
+    base = int(tab["base"].iloc[0]) if not tab.empty else 0
+    ok = tab[~tab["amostra_pequena"]]
+    coluna = {"jaccard": "jaccard", "lift": "lift", "jobs_both": "vagas_par"}[ordem]
+    ok = ok.sort_values([coluna, "vagas_par"], ascending=False).head(int(cfg.get("publicar_pares", 100)))
+    return {
+        "window_days": janela_dias, "base": base, "min_pair_jobs": min_par, "low_sample": base < min_n,
+        "rank": ordem, "note": NOTA_COOCORRENCIA,
+        "pairs": [{"skill_a": r.skill_a, "skill_b": r.skill_b, "jobs_both": int(r.vagas_par),
+                   "jobs_both_required": int(r.vagas_par_requisito), "jobs_a": int(r.vagas_a), "jobs_b": int(r.vagas_b),
+                   "support_pct": float(r.suporte_pct),
+                   "confidence_a_b_pct": float(r.confianca_a_b_pct), "confidence_a_b_ci": list(r.confianca_a_b_ic),
+                   "confidence_b_a_pct": float(r.confianca_b_a_pct), "confidence_b_a_ci": list(r.confianca_b_a_ic),
+                   "lift": float(r.lift), "jaccard": float(r.jaccard)} for r in ok.itertuples()] if base >= min_n else [],
+    }
+
+
 def construir(s: Settings, agora: datetime, run_id: str, limite_vagas: int = 300,
               janela_vagas: int = 30) -> dict[str, dict[str, Any]]:
-    snap = market.carregar(Lake(s.lake))
     tax = Taxonomy(s.skills)
+    snap = market.carregar(Lake(s.lake), tax.config.extracao.gold_hibrida)
     min_n = int(s.scoring["recomendacoes"]["min_vagas_janela"])
     c = snap.canonicas
     primeira = pd.to_datetime(c["primeira_observacao"], utc=True)
@@ -111,6 +138,7 @@ def construir(s: Settings, agora: datetime, run_id: str, limite_vagas: int = 300
                           "total_jobs": int(tot_sen.get(x.senioridade, 0)),
                           "pct": round(100 * x.vagas_com_skill / tot_sen.get(x.senioridade, 1), 1),
                           "low_sample": int(tot_sen.get(x.senioridade, 0)) < min_n} for x in por_sen.itertuples()],
+        "co_occurrence": _coocorrencia(snap, mascara, janela_dias, min_n, s.scoring.get("coocorrencia", {})),
     }, n_atual)
 
     # ---- jobs (vagas relevantes, sem descrição e sem score pessoal)

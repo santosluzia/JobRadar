@@ -74,5 +74,6 @@ def canonizar(raw: RawJob, tax: Taxonomy, agora: datetime, run_id: str) -> Canon
         "descricao_hash": sha1(raw.description) if raw.description else None,
         "chave_alternativa": chave_alternativa(raw.company, raw.title, uf),
         "atualizado_em": agora,
+        "taxonomia_versao": tax.versao,
     }
     return CanonicalJob(row=row, skills=skills)

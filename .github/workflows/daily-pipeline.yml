@@ -40,6 +40,10 @@ concurrency:
 
 env:
   JOBRADAR_LAKE: ${{ github.workspace }}/lake
+  # Etapa 8 (docs/privacidade.md): com a variável de repositório JOBRADAR_NOTIFICACAO_PRIVADA=true, este
+  # workflow PÚBLICO não lê o perfil nem envia e-mail: score e e-mails rodam no workflow privado do
+  # jobradar-data (.github/workflows/privado.yml), disparado pelo push do lake. Sem a variável, nada muda.
+  SEM_PONTUACAO: ${{ vars.JOBRADAR_NOTIFICACAO_PRIVADA == 'true' && '--sem-pontuacao' || '' }}
   RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   DATA_REPO: ${{ vars.JOBRADAR_DATA_REPO || format('{0}-data', github.repository) }}
 
@@ -50,6 +54,7 @@ jobs:
     outputs:
       rodar: ${{ steps.turno.outputs.rodar }}
       pular_vazio: ${{ steps.turno.outputs.pular_vazio }}
+      turno: ${{ steps.turno.outputs.turno }}
     steps:
       - name: Já rodou neste turno?
         id: turno
@@ -74,6 +79,7 @@ jobs:
           criada=$(gh api "repos/$REPO/actions/runs/$RUN" --jq .created_at)
           dia=$(dia_de "$criada"); turno=$(turno_de "$criada")
           echo "Execução de $dia, turno: $turno."
+          echo "turno=$turno" >> "$GITHUB_OUTPUT"   # o Radar Profissional sai no turno configurado (private/radar.yaml)
 
           # Execução manual (Run workflow) sempre roda, manda o e-mail mesmo vazio e não conta para o turno.
           if [ "$AGENDADA" != "true" ]; then
@@ -102,21 +108,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Instalar dependências
-        run: pip install -e ".[app,dev]"
+        # .[curriculo] só para os testes da leitura de PDF/DOCX (com currículo FICTÍCIO); o pipeline não o usa
+        run: pip install -e ".[app,dev,curriculo]"
 
       - name: Testes
         run: pytest -q
 
       - name: Baixar histórico (repositório privado)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
           repository: ${{ env.DATA_REPO }}
           ssh-key: ${{ secrets.JOBRADAR_DATA_DEPLOY_KEY }}
@@ -128,7 +135,14 @@ jobs:
         env:
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
-        run: jobradar run --run-id "$RUN_ID" --report run-report.json
+        run: jobradar run --run-id "$RUN_ID" --report run-report.json $SEM_PONTUACAO
+
+      # Taxonomia nova (versão em config/skills.yaml) → reaplica ao histórico que ainda tem descrição,
+      # para a tendência mensal não misturar réguas. Com o histórico já alinhado, não faz nada.
+      # A saída só tem contagens agregadas por competência (nada privado).
+      - name: Alinhar histórico à versão da taxonomia
+        if: always() && steps.run.outputs.status != ''
+        run: jobradar reextrair $SEM_PONTUACAO
 
       # Roda mesmo se todas as fontes falharam (status=falha), para registrar a execução;
       # não roda se o processo quebrou no meio (aí não há status e o lake não é confiável).
@@ -143,7 +157,7 @@ jobs:
         run: bash scripts/publish_public_data.sh public_out public-data
 
       - name: Enviar e-mail
-        if: github.event_name == 'schedule' || inputs.notificar
+        if: vars.JOBRADAR_NOTIFICACAO_PRIVADA != 'true' && (github.event_name == 'schedule' || inputs.notificar)
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
@@ -151,15 +165,22 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: jobradar notify --run-id "$RUN_ID" ${{ needs.checar.outputs.pular_vazio == 'true' && '--pular-se-vazio' || '' }}
+        run: jobradar notify --run-id "$RUN_ID" --turno "${{ needs.checar.outputs.turno }}" ${{ needs.checar.outputs.pular_vazio == 'true' && '--pular-se-vazio' || '' }}
 
-      - name: Persistir registro de notificações
-        if: github.event_name == 'schedule' || inputs.notificar
-        run: bash scripts/persist_lake.sh "notificações ${RUN_ID}"
+      # Registro de notificações e das validações (contrato público). Sem alteração, não faz commit.
+      - name: Persistir registros da execução
+        if: always() && steps.run.outputs.status != ''
+        run: bash scripts/persist_lake.sh "registros ${RUN_ID}"
+
+      # Indicadores e alertas da operação no resumo da execução (só agregados; nada pessoal).
+      - name: Saúde da operação
+        if: always() && steps.run.outputs.status != ''
+        continue-on-error: true
+        run: jobradar saude --resumo-github > /dev/null
 
       - name: Métricas da execução
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: execucao-${{ env.RUN_ID }}
           path: run-report.json

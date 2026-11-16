@@ -35,9 +35,12 @@ from typing import Any
 
 import pandas as pd
 
+from ..analytics import market
 from ..analytics.selection import FUSO, inicio_periodo, publicadas_no_periodo, relevantes
+from ..scoring import melhor_por_vaga
 from ..settings import Settings
 from ..storage import Lake
+from ..transformations.skills import Taxonomy
 
 log = logging.getLogger(__name__)
 CANAL = "email"
@@ -77,7 +80,8 @@ class Candidata:
 def selecionar(s: Settings, agora: datetime) -> tuple[list[Candidata], int]:
     """Vagas do e-mail (do dia por score, depois atrasadas por data) e quantas ficaram de fora por max_vagas."""
     lake = Lake(s.lake)
-    jobs, skills = lake.read("silver/jobs"), lake.read("silver/job_skills")
+    hibrida = Taxonomy(s.skills).config.extracao.gold_hibrida
+    jobs, skills = lake.read("silver/jobs"), market.competencias(lake, hibrida)
     if jobs.empty:
         return [], 0
     cfg = s.sources.get("notificacoes", {})
@@ -91,7 +95,7 @@ def selecionar(s: Settings, agora: datetime) -> tuple[list[Candidata], int]:
     jobs = jobs.assign(secao=None)
     jobs.loc[do_dia, "secao"] = DO_DIA
     jobs.loc[atrasada, "secao"] = ATRASADA
-    sel = jobs[mask & (do_dia | atrasada)].merge(lake.read("gold/job_scores"), on="job_id", how="left")
+    sel = jobs[mask & (do_dia | atrasada)].merge(melhor_por_vaga(lake.read("gold/job_scores")), on="job_id", how="left")
     sel = sel[sel["score"].fillna(0) >= int(s.filtros.get("score_minimo", 0))]
     sel["_pub"] = pd.to_datetime(sel["publicada_em"], utc=True, errors="coerce")
     sel = pd.concat([sel[sel["secao"] == DO_DIA].sort_values(["score", "_pub"], ascending=[False, False]),
@@ -242,32 +246,21 @@ def _saude(fontes: list[dict[str, Any]]) -> str:
     return "".join(itens) or "sem execuções"
 
 
-def renderizar(vagas: list[Candidata], agora: datetime, nomes: dict[str, str],
-               fontes: list[dict[str, Any]], cartoes: int = 10, excedentes: int = 0) -> tuple[str, str, str]:
-    e = html.escape
-    local = agora.astimezone(FUSO)
-    dia = local.strftime("%d/%m/%Y")
+def bloco_vagas(vagas: list[Candidata], agora: datetime, nomes: dict[str, str], cartoes: int = 10
+                ) -> tuple[list[str], list[str]]:
+    """Seções de vagas (cartões das de maior aderência + listas compactas). Reusado pelo Radar."""
     hoje = pd.Timestamp(agora).tz_convert(FUSO).normalize()
     do_dia = [v for v in vagas if v.secao == DO_DIA]
     atrasadas = [v for v in vagas if v.secao == ATRASADA]
-    if do_dia:
-        assunto = f"JobRadar {dia}: {len(do_dia)} vaga(s) publicada(s) ontem e hoje"
-        manchete = f"{len(do_dia)} vaga{'s' if len(do_dia) > 1 else ''} publicada{'s' if len(do_dia) > 1 else ''} ontem e hoje"
-    else:
-        assunto = f"JobRadar {dia}: nenhuma vaga nova publicada ontem ou hoje"
-        manchete = "Nenhuma vaga nova publicada ontem ou hoje"
-    if atrasadas:
-        assunto += f" + {len(atrasadas)} encontrada(s) agora"
-
-    linhas, texto = [], [assunto, ""]
+    linhas, texto = [], []
     destaque, resto = do_dia[:cartoes], do_dia[cartoes:]
     if destaque:
         linhas.append(_titulo_secao(f"As {len(destaque)} com maior aderência"))
         texto.append(f"== As {len(destaque)} com maior aderência ==")
         for i, v in enumerate(destaque, 1):
-            c, t = _cartao(i, v, nomes)
+            c, tx = _cartao(i, v, nomes)
             linhas.append(c)
-            texto += t
+            texto += tx
     # "Do dia" sempre tem data de publicação (é o critério da seção).
     resto.sort(key=lambda v: _ts(v.job["publicada_em"]), reverse=True)
     de_hoje = [v for v in resto if _ts(v.job["publicada_em"]) >= hoje]
@@ -281,10 +274,64 @@ def renderizar(vagas: list[Candidata], agora: datetime, nomes: dict[str, str],
         texto += ["", f"== {rotulo} ({len(grupo)}) =="]
         bloco = []
         for k, v in enumerate(grupo):
-            h, t = _linha(v, ultima=k == len(grupo) - 1)
+            h, tx = _linha(v, ultima=k == len(grupo) - 1)
             bloco.append(h)
-            texto.append(t)
+            texto.append(tx)
         linhas.append(_lista(bloco))
+    return linhas, texto
+
+
+def moldura(assunto: str, previa: str, rotulo: str, manchete: str, subtitulo: str, linhas: list[str],
+            fontes: list[dict[str, Any]], aviso: str = "", rodape: str = "") -> str:
+    """Cabeçalho marinho, corpo e rodapé com a saúde das fontes, no visual do portfólio."""
+    e = html.escape
+    return f"""<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
+<title>{e(assunto)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;600&amp;family=IBM+Plex+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:{PAPEL};color:{MARINHO};font-family:{SANS};-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:{PAPEL}">{e(previa)}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{PAPEL}"><tr><td align="center" style="padding:0">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;font-family:{SANS}">
+<tr><td style="padding:28px 24px 26px;background:{MARINHO};background-image:radial-gradient(circle at 100% 0%,rgba(132,102,255,.45),rgba(12,19,48,0) 60%)">
+  <div style="font-family:{MONO};font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:{VIOLETA_VIVO}">{_pixels()}{e(rotulo)}</div>
+  <div style="margin-top:14px;font-family:{SERIF};font-size:28px;line-height:33px;font-weight:600;color:{PAPEL}">{e(manchete)}</div>
+  <div style="margin-top:8px;font-size:14px;color:#e2e1f6">{e(subtitulo)}</div>
+  <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:18px"><tr>
+    <td style="border:1px solid rgba(226,225,246,.35);border-radius:999px"><a href="{URL_VAGAS}" style="display:inline-block;padding:9px 16px;font-size:13px;color:{PAPEL};text-decoration:none">Ver todas as vagas no portfólio &nbsp;→</a></td>
+  </tr></table>
+</td></tr>
+<tr><td style="height:6px;font-size:0;line-height:0">&nbsp;</td></tr>
+{''.join(linhas)}
+<tr><td style="padding:22px 24px 30px;font-size:12px;line-height:19px;color:{TEXTO_SUAVE}">
+  {aviso}<div style="margin-bottom:8px"><span style="font-family:{MONO};letter-spacing:.12em;text-transform:uppercase;font-size:11px">Fontes</span><br>{_saude(fontes)}</div>
+  {rodape or 'Datas no horário de São Paulo. O score mede compatibilidade com o seu perfil; não é probabilidade de contratação. "Sem evidência" significa que a competência não está registrada no perfil, não que você não a tenha.'}
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid {LINHA}">
+    <a href="{URL_VAGAS}" style="color:{VIOLETA};text-decoration:none;font-weight:600">santosluzia.com</a> &nbsp;·&nbsp;
+    <a href="{URL_PROJETO}" style="color:{TEXTO_SUAVE}">como o JobRadar funciona</a></div>
+</td></tr></table>
+</td></tr></table></body></html>"""
+
+
+def renderizar(vagas: list[Candidata], agora: datetime, nomes: dict[str, str],
+               fontes: list[dict[str, Any]], cartoes: int = 10, excedentes: int = 0) -> tuple[str, str, str]:
+    local = agora.astimezone(FUSO)
+    dia = local.strftime("%d/%m/%Y")
+    do_dia = [v for v in vagas if v.secao == DO_DIA]
+    atrasadas = [v for v in vagas if v.secao == ATRASADA]
+    if do_dia:
+        assunto = f"JobRadar {dia}: {len(do_dia)} vaga(s) publicada(s) ontem e hoje"
+        manchete = f"{len(do_dia)} vaga{'s' if len(do_dia) > 1 else ''} publicada{'s' if len(do_dia) > 1 else ''} ontem e hoje"
+    else:
+        assunto = f"JobRadar {dia}: nenhuma vaga nova publicada ontem ou hoje"
+        manchete = "Nenhuma vaga nova publicada ontem ou hoje"
+    if atrasadas:
+        assunto += f" + {len(atrasadas)} encontrada(s) agora"
+
+    linhas, corpo_txt = bloco_vagas(vagas, agora, nomes, cartoes)
+    texto = [assunto, ""] + corpo_txt
     if not vagas:
         linhas.append(f'<tr><td style="padding:22px 20px;font-size:14px;line-height:21px;'
                       f'color:{MARINHO}">Nenhuma vaga nova acima do score mínimo publicada ontem ou hoje. '
@@ -297,35 +344,9 @@ def renderizar(vagas: list[Candidata], agora: datetime, nomes: dict[str, str],
     aviso = (f'<b style="color:{MARINHO}">Mais {excedentes} vaga(s) não couberam neste e-mail</b>; '
              f'veja todas em <a href="{URL_VAGAS}" style="color:{VIOLETA}">santosluzia.com</a>.<br><br>'
              if excedentes else "")
-    corpo = f"""<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
-<title>{e(assunto)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;600&amp;family=IBM+Plex+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
-</head>
-<body style="margin:0;padding:0;background:{PAPEL};color:{MARINHO};font-family:{SANS};-webkit-text-size-adjust:100%">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:{PAPEL}">{e(previa)}</div>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{PAPEL}"><tr><td align="center" style="padding:0">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;font-family:{SANS}">
-<tr><td style="padding:28px 24px 26px;background:{MARINHO};background-image:radial-gradient(circle at 100% 0%,rgba(132,102,255,.45),rgba(12,19,48,0) 60%)">
-  <div style="font-family:{MONO};font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:{VIOLETA_VIVO}">{_pixels()}JobRadar · Engenharia de Dados</div>
-  <div style="margin-top:14px;font-family:{SERIF};font-size:28px;line-height:33px;font-weight:600;color:{PAPEL}">{e(manchete)}</div>
-  <div style="margin-top:8px;font-size:14px;color:#e2e1f6">{DIAS_SEMANA[local.weekday()].capitalize()}, {dia} · horário de São Paulo{f" · mais {len(atrasadas)} encontrada(s) agora" if atrasadas else ""}</div>
-  <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:18px"><tr>
-    <td style="border:1px solid rgba(226,225,246,.35);border-radius:999px"><a href="{URL_VAGAS}" style="display:inline-block;padding:9px 16px;font-size:13px;color:{PAPEL};text-decoration:none">Ver todas as vagas no portfólio &nbsp;→</a></td>
-  </tr></table>
-</td></tr>
-<tr><td style="height:6px;font-size:0;line-height:0">&nbsp;</td></tr>
-{''.join(linhas)}
-<tr><td style="padding:22px 24px 30px;font-size:12px;line-height:19px;color:{TEXTO_SUAVE}">
-  {aviso}<div style="margin-bottom:8px"><span style="font-family:{MONO};letter-spacing:.12em;text-transform:uppercase;font-size:11px">Fontes</span><br>{_saude(fontes)}</div>
-  Datas no horário de São Paulo. O score mede compatibilidade com o seu perfil; não é probabilidade de contratação.
-  "Sem evidência" significa que a competência não está registrada no perfil, não que você não a tenha.
-  <div style="margin-top:16px;padding-top:14px;border-top:1px solid {LINHA}">
-    <a href="{URL_VAGAS}" style="color:{VIOLETA};text-decoration:none;font-weight:600">santosluzia.com</a> &nbsp;·&nbsp;
-    <a href="{URL_PROJETO}" style="color:{TEXTO_SUAVE}">como o JobRadar funciona</a></div>
-</td></tr></table>
-</td></tr></table></body></html>"""
+    subtitulo = (f"{DIAS_SEMANA[local.weekday()].capitalize()}, {dia} · horário de São Paulo"
+                 + (f" · mais {len(atrasadas)} encontrada(s) agora" if atrasadas else ""))
+    corpo = moldura(assunto, previa, "JobRadar · Engenharia de Dados", manchete, subtitulo, linhas, fontes, aviso)
     if excedentes:
         texto += ["", f"Mais {excedentes} vaga(s) não couberam neste e-mail; veja todas em {URL_VAGAS}"]
     saude_txt = " | ".join(f"{f['fonte']}: {f['status_ultima_execucao']}" for f in fontes) or "sem execuções"

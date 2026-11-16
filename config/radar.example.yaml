@@ -1,0 +1,26 @@
+# JobRadar — Seu Radar Profissional: configuração PRIVADA.
+# Copie para <lake>/private/radar.yaml (repositório jobradar-data). Sem o arquivo, valem estes padrões.
+ativo: true
+horario: "06:00"          # precisão de turno: 00:00, 06:00, 12:00 ou 18:00 (horário de São Paulo)
+dias_semana: [seg, ter, qua, qui, sex, sab, dom]
+frequencia: diaria        # diaria | dias_uteis | semanal (no primeiro dia configurado da semana)
+objetivo:                 # id de um objetivo do perfil; vazio = o primeiro
+limite_itens: 5           # itens por lista do e-mail
+nao_repetir_dias: 7       # a mesma ação do dia não volta antes disso
+janela_tendencia_dias: 14 # tendência: últimos N dias…
+janela_base_dias: 28      # …contra os M anteriores (mínimo de vagas em cada: recomendacoes.min_vagas_janela)
+min_variacao_pp: 5        # variação mínima (pontos percentuais) para chamar de tendência
+
+# Relatório Semanal de Evolução Profissional (e-mail à parte do Radar)
+semanal:
+  ativo: true
+  dia: seg                # seg · ter · qua · qui · sex · sab · dom
+  horario: "12:00"        # precisão de turno, como o Radar
+  objetivo:               # vazio = o mesmo do Radar
+  limite_itens: 8
+
+# Diagnóstico mensal: o retrato do mês é gravado sempre; o e-mail sai se ativo
+mensal:
+  ativo: true
+  dia: 1                  # 1 a 28 (no dia 1, fecha o mês anterior)
+  horario: "12:00"

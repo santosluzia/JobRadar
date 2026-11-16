@@ -1,0 +1,27 @@
+Maria Exemplo da Silva
+São Paulo, SP · maria.exemplo@example.com · linkedin.com/in/maria-exemplo
+Resumo profissional
+Analista de dados com experiência em SQL e construção de relatórios. Interesse em engenharia de dados.
+Experiência Profissional
+Analista de Dados Pleno | Empresa Fictícia S.A. | 03/2022 – atual
+- Desenvolvimento de consultas e procedures em Oracle para relatórios regulatórios.
+- Construção de dashboards em Power BI para a área financeira.
+- Automatizei a carga diária de 12 tabelas, reduzindo em 40% o tempo de fechamento.
+- Integração de dados de várias fontes com Python e pandas.
+Empresa Exemplo Ltda
+Estagiária de BI
+jan 2020 - fev 2022
+- Apoio na manutenção de planilhas e indicadores.
+- Versionamento de scripts com Git.
+Formação Acadêmica
+Bacharelado em Sistemas de Informação — Universidade Fictícia (2016 – 2020)
+Certificações
+Databricks Certified Data Engineer Associate (2025)
+Curso de Apache Airflow — Plataforma Fictícia
+Projetos
+Pipeline de vagas (github.com/maria-exemplo/pipeline)
+- Coleta diária com Python, armazenamento em Parquet e consultas com DuckDB e SQL.
+Competências
+SQL, Python, Power BI, Excel, Git, Docker
+Idiomas
+Inglês intermediário
