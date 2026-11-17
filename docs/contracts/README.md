@@ -41,7 +41,7 @@ Todos os arquivos de dados têm a mesma estrutura externa:
 - **Enums são fechados:**
   - modality: `remoto` `hibrido` `presencial` `nao_informada`;
   - seniority: `estagio` `junior` `pleno` `senior` `lideranca` `nao_informada`;
-  - family: `engenharia_dados` `analytics_engineering` `desenvolvimento_dados` `analise_dados` `governanca_qualidade` `outra`;
+  - family: `engenharia_dados` `analytics_engineering` `desenvolvimento_dados` `analise_dados` `governanca_qualidade` `outra`. Famílias internas criadas depois do v1 (hoje `administracao_dados`: DBA e Administração de Dados) saem como `outra` em `jobs.items[].family` e ficam fora de `skill-trends.scope`; em `market-summary.by_family`, que não é enum, aparecem com o próprio nome;
   - status: `ativa` `desconhecida` `encerrada`.
 - **`additionalProperties: false`** em todos os objetos, o que impede que um campo não previsto, como uma descrição ou um score pessoal, vaze por engano.
 - **Amostra:** `low_sample: true` quando o denominador está abaixo de `min_sample` (30). O frontend deve exibir esses pontos com aviso.

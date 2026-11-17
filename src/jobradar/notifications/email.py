@@ -85,7 +85,7 @@ def selecionar(s: Settings, agora: datetime) -> tuple[list[Candidata], int]:
     if jobs.empty:
         return [], 0
     cfg = s.sources.get("notificacoes", {})
-    mask = relevantes(jobs, skills, s.filtros, agora, int(s.sources["busca"].get("max_dias_publicacao", 30)))
+    mask = relevantes(jobs, skills, s.filtros, agora, int(s.sources["busca"].get("max_dias_publicacao", 30)), regra_competencias=s.scoring["aderencia"].get("familia_por_competencias"))
     ja = set(lake.read("meta/notifications").query("canal == @CANAL")["job_id"])
     mask &= ~jobs["job_id"].isin(ja)
     do_dia = publicadas_no_periodo(jobs, PERIODO, agora)

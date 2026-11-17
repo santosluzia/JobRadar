@@ -12,7 +12,7 @@
 # esforco:    estimativa de aprendizagem (baixo | medio | alto) — opinião configurável, não dado observado.
 # projeto:    se dá para demonstrar num projeto prático de portfólio.
 
-versao: "2.0.0"
+versao: "2.1.0"
 
 competencias:
   # ---------------------------------------------------------------- Linguagens
@@ -30,6 +30,12 @@ competencias:
                 "(consultas|queries),? (e )?(procedures|functions|views|triggers)", "\\bprocedures? (em|no|na|de) ",
                 "bancos? de dados relaciona(l|is)", "relational databases?"]
     descricoes: ["escrever consultas em bancos de dados relacionais", "writing complex queries"]
+    esforco: baixo
+  - id: plsql
+    nome: PL/SQL
+    categoria: linguagem
+    padroes: ["pl ?/ ?sql", "\\bplsql\\b", "packages? (pl|oracle)", "triggers? oracle"]
+    descricoes: ["desenvolvimento de procedures e packages em PL/SQL", "PL/SQL development"]
     esforco: baixo
   - id: scala
     nome: Scala
@@ -166,6 +172,41 @@ competencias:
     categoria: armazenamento
     padroes: ["postgres"]
     esforco: baixo
+  - id: sql_server
+    nome: SQL Server
+    categoria: armazenamento
+    padroes: ["sql ?server", "\\bmssql\\b", "\\bt-sql\\b"]
+    esforco: baixo
+  - id: mysql
+    nome: MySQL / MariaDB
+    categoria: armazenamento
+    padroes: ["\\bmysql\\b", "mariadb"]
+    esforco: baixo
+  - id: tuning_bd
+    nome: Tuning e performance de banco de dados
+    categoria: armazenamento
+    padroes: ["(?<!fine-)(?<!fine )\\btuning\\b(?! (de|of) (modelos?|models?|llms?|hiperparametros|hyperparameters))",
+              "(leitura|analise|interpretacao) (de|do|dos) planos? de execucao", "planos? de execucao (de|das|dos) (consultas|queries)",
+              "execution plans?", "query optimization", "otimizacao de performance (de|do) banco"]
+    # "planos de execução" sozinho é também plano de projeto; "indexação" sozinha é também índice vetorial.
+    conceitos: ["otimizacao de (consultas|queries|banco)", "performance (de|do) banco",
+                "(criacao|analise|estrategias?|uso adequado) de indices", "indexacao (de|do|das|dos) (banco|tabelas|consultas)"]
+    descricoes: ["otimização de consultas e índices no banco de dados", "database performance tuning"]
+    esforco: medio
+  - id: administracao_bd
+    nome: Administração de bancos de dados
+    categoria: armazenamento
+    # Sem "dba" no texto ("junto com as equipes de DBA" é menção ao time); o cargo DBA vem da família pelo título.
+    # Sem "manutenção de banco de dados": em vaga administrativa é alimentar planilha/cadastro.
+    padroes: ["administracao de (bancos? de dados|sgbds?)", "database administration", "\\brman\\b",
+              "data ?guard", "always ?on", "backup e (restore|recuperacao)", "backup/restore", "rotinas de backup",
+              "replicacao (de|do|entre) (bancos?|servidores)", "database replication",
+              "instalacao,? (e )?configuracao (de|do) (banco|sgbd)"]
+    conceitos: ["(monitoramento|sustentacao) (de|do|dos) (bancos? de dados|ambientes? de banco)",
+                "alta disponibilidade (de|do|dos) (banco|ambiente)"]
+    descricoes: ["administração de bancos de dados: backup, restore, replicação e alta disponibilidade",
+                 "database administration, backup and recovery"]
+    esforco: alto
   - id: redis
     nome: Redis
     categoria: armazenamento

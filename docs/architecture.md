@@ -195,11 +195,11 @@ A soma ponderada vai de 0 a 100. Os pesos estão em `config/scoring.yaml`:
 
 | Componente | Peso | Como pontua |
 |---|---|---|
-| Família / responsabilidades | 20 | Fração por família de cargo; família-alvo do perfil vale 100% |
+| Família / responsabilidades | 20 | Fração por família de cargo; família-alvo do perfil vale 100%. Título genérico (analista, desenvolvedor, consultor…) sem família de dados que pede ao menos 3 competências de dados (`familia_por_competencias` em `config/scoring.yaml`) vale 50%, sem a penalidade abaixo |
 | Competências | 45 | Cobertura dos requisitos pela evidência (profissional 1,0 · projeto 0,75 · em desenvolvimento 0,4 · não dominada e sem evidência 0). Desejáveis valem 40% de um requisito |
 | Senioridade | 20 | 100% se estiver no objetivo; sênior e liderança pontuam pouco |
 | Modalidade e local | 15 | Remoto, ou híbrido/presencial na região preferida; neutro quando não informado |
-| Penalidades | — | −30 para palavra excludente no título; −20 para cargo fora das famílias de dados |
+| Penalidades | — | −30 para palavra excludente no título; −20 para cargo fora das famílias de dados (exceto o caso de competências acima) |
 
 Cada score é gravado com a lista de critérios, pontos e motivo. As lacunas são separadas em **não dominadas**, quando o perfil diz que a pessoa não domina, e **sem evidência**, quando não há registro no perfil.
 

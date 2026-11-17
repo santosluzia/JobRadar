@@ -59,3 +59,18 @@ def test_presencial_fora_da_regiao_pontua_menos():
 def test_perfil_com_nivel_invalido_falha_cedo():
     with pytest.raises(ValueError):
         Profile.from_dict({"competencias": [{"skill": "sql", "nivel": "expert"}]})
+
+
+def test_titulo_generico_que_pede_competencias_de_dados_nao_leva_penalidade_de_familia():
+    base = {**JOB, "familia": "outra"}
+    dados = req("sql", "oracle", "plsql")
+    sistemas = calcular({**base, "titulo": "Analista de Sistemas Pleno"}, dados, PERFIL, CFG)
+    caixa = calcular({**base, "titulo": "Operador de Caixa"}, dados, PERFIL, CFG)
+    poucas = calcular({**base, "titulo": "Analista de Sistemas Pleno"}, req("sql", "java"), PERFIL, CFG)
+    fam = next(e for e in sistemas.explicacao if e["criterio"] == "familia")
+    assert fam["pontos"] == CFG["pesos"]["familia"] * CFG["familia_por_competencias"]["fracao"]
+    assert "pede 3 competências de dados" in fam["detalhe"]
+    assert not any(e["criterio"] == "penalidade" for e in sistemas.explicacao)
+    assert any(e["detalhe"] == "cargo fora das famílias de dados" for e in caixa.explicacao)      # título não genérico
+    assert any(e["detalhe"] == "cargo fora das famílias de dados" for e in poucas.explicacao)     # só 1 de dados
+    assert sistemas.score > poucas.score

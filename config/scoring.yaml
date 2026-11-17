@@ -13,8 +13,19 @@ aderencia:
     analytics_engineering: 0.9
     desenvolvimento_dados: 0.85
     governanca_qualidade: 0.75
+    administracao_dados: 0.75
     analise_dados: 0.6
     outra: 0.0
+  # Vaga de título genérico (analista, desenvolvedor, consultor, especialista…) sem família de dados no
+  # título, mas que pede ao menos `min_competencias` destas competências: conta pelas responsabilidades,
+  # com `fracao` do peso de família e SEM a penalidade familia_outra. A busca passa a valer pelas
+  # competências, não só pelo título.
+  familia_por_competencias:
+    min_competencias: 3
+    fracao: 0.5
+    competencias: [sql, plsql, oracle, sql_server, postgres, mysql, nosql, tuning_bd, administracao_bd,
+                   modelagem, etl, data_warehouse, data_lake, databricks, spark, processamento_distribuido,
+                   airflow, dbt, data_factory, snowflake, kafka, qualidade_dados, governanca]
   evidencia:                   # quanto cada nível de evidência cobre um requisito
     profissional: 1.0
     projeto: 0.75

@@ -78,3 +78,4 @@ A fila só sugere; o lift descreve associação na amostra, não causa.
 |---|---|---|
 | 1.0.0 | 2026-10 | 36 competências técnicas por termo; sem versão gravada (linhas antigas = 1.0.0) |
 | 2.0.0 | 2026-11-12 | Sinônimos e **conceitos**; 5 técnicas novas (`ia_ml`, `processamento_distribuido`, `estatistica`, `excel`, `kubernetes`); 7 comportamentais e `ingles` (privados); segmentação da Gupy; seções e frases de contexto; frases de formação; evidência, método, confiança e posições de todas as menções (coocorrência) por achado. F1 no lote teste: 85,4% → 97,2% (ADR 0001) |
+| 2.1.0 | 2026-11-17 | 5 técnicas de banco de dados: `plsql`, `sql_server`, `mysql`, `tuning_bd` e `administracao_bd`. Junto: família `administracao_dados` e títulos com marcador de gênero ("Engenheiro(a) de Dados"), reclassificados pelo `reextrair` |

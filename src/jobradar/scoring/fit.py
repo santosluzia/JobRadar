@@ -5,9 +5,11 @@ evidências registradas no perfil. Cada ponto vem acompanhado do critério que o
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..transformations.normalize import TITULO_GENERICO, titulo_sem_genero
 from ..transformations.text import normalizar
 from .profile import Profile
 
@@ -31,9 +33,16 @@ def calcular(job: dict[str, Any], skills: list[dict[str, str]], profile: Profile
     frac = float(cfg["familia"].get(fam, 0))
     if profile.familias and fam in profile.familias:
         frac = max(frac, 1.0)
+    detalhe = f"cargo classificado como {fam}"
+    # Título fora das famílias de dados, mas a vaga pede várias competências de dados: conta pelas
+    # responsabilidades (crédito parcial, sem a penalidade de família).
+    pelas_competencias = _dados_pedidos(job, skills, cfg) if fam == "outra" else []
+    if pelas_competencias:
+        frac = max(frac, float(cfg["familia_por_competencias"].get("fracao", 0.5)))
+        detalhe = (f"título fora das famílias de dados, mas a vaga pede {len(pelas_competencias)} competências "
+                   f"de dados ({', '.join(pelas_competencias[:5])})")
     pts = pesos["familia"] * frac
-    exp.append({"criterio": "familia", "pontos": round(pts, 1), "maximo": pesos["familia"],
-                "detalhe": f"cargo classificado como {fam}"})
+    exp.append({"criterio": "familia", "pontos": round(pts, 1), "maximo": pesos["familia"], "detalhe": detalhe})
     total += pts
 
     # 2. Competências
@@ -89,12 +98,23 @@ def calcular(job: dict[str, Any], skills: list[dict[str, str]], profile: Profile
             exp.append({"criterio": "penalidade", "pontos": -pen.get("palavra_excludente", 30), "maximo": 0,
                         "detalhe": f"título contém '{palavra}'"})
             break
-    if fam == "outra":
+    if fam == "outra" and not pelas_competencias:
         total -= pen.get("familia_outra", 20)
         exp.append({"criterio": "penalidade", "pontos": -pen.get("familia_outra", 20), "maximo": 0,
                     "detalhe": "cargo fora das famílias de dados"})
 
     return FitResult(max(0, min(100, round(total))), exp, lacunas, sem_ev)
+
+
+def _dados_pedidos(job: dict[str, Any], skills: list[dict[str, str]], cfg: dict[str, Any]) -> list[str]:
+    """Competências de dados pedidas por uma vaga de título genérico (analista, desenvolvedor, consultor…),
+    quando chegam a `familia_por_competencias.min_competencias`. Fora disso, lista vazia."""
+    regra = cfg.get("familia_por_competencias") or {}
+    alvo = set(regra.get("competencias") or [])
+    if not alvo or not re.search(TITULO_GENERICO, titulo_sem_genero(job.get("titulo"))):
+        return []
+    pedidas = sorted({s["skill_id"] for s in skills} & alvo)
+    return pedidas if len(pedidas) >= int(regra.get("min_competencias", 3)) else []
 
 
 def _modalidade_local(job: dict[str, Any], mod: str, profile: Profile) -> tuple[float, str]:

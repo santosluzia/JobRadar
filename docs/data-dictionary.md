@@ -31,7 +31,7 @@ erDiagram
 | empresa, cidade, uf, pais, local_raw | string | Localização: `uf` é sigla inferida; `local_raw` como veio da fonte |
 | modalidade | enum | remoto · hibrido · presencial · nao_informada |
 | senioridade | enum | estagio · junior · pleno · senior · lideranca · nao_informada |
-| familia | enum | engenharia_dados · analytics_engineering · desenvolvimento_dados · analise_dados · governanca_qualidade · outra |
+| familia | enum | engenharia_dados · analytics_engineering · desenvolvimento_dados · analise_dados · governanca_qualidade · administracao_dados · outra. Inferida pelo título (marcadores de gênero como "(a)" ignorados); título genérico com descrição de engenharia vira engenharia_dados |
 | origem_campos | json | De onde veio cada campo inferido: `fonte`, `titulo`, `descricao`, `local_raw` ou `nao_informada` |
 | publicada_em | timestamp | Data de publicação informada pela fonte (pode ser nula) |
 | prazo_em | timestamp | Prazo de inscrição, quando a fonte informa |
