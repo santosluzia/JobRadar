@@ -53,3 +53,31 @@ def test_familia_governanca_so_de_dados():
     assert n.familia("Analista Qualidade de Dados JR", set())[0] == gov
     assert n.familia("GOVERNANÇA DE PRIVACIDADE - POA/RS", set())[0] == Familia.outra
     assert n.familia("Especialista de Governança e Controle Estratégico", set())[0] == Familia.outra
+
+
+def test_familia_ignora_marcador_de_genero_e_plural():
+    eng = Familia.engenharia_dados
+    assert n.familia("Engenheiro(a) de Dados Pleno", set())[0] == eng
+    assert n.familia("Engenheiro (a) de Dados Júnior", set())[0] == eng
+    assert n.familia("ENGENHEIROS DE DADOS - Recrutamento Aberto", set())[0] == eng
+    assert n.familia("Pessoa Engenheira dados / BI - Pleno", set())[0] == eng
+    assert n.familia("Arquiteto(a) de Dados Sênior", set())[0] == eng
+    assert n.titulo_sem_genero("Desenvolvedor/a Oracle") == "desenvolvedor oracle"
+
+
+def test_familia_administracao_de_dados_e_dba():
+    adm = Familia.administracao_dados
+    for titulo in ["DBA Oracle e SQL Server", "Administrador(a) de Banco de Dados Pleno", "Administrador de Dados Pleno",
+                   "Analista de Banco de Dados Jr - Remoto", "ANALISTA DE BANCO DADOS II", "Senior Database Administrator",
+                   "Analista de Administração de Banco de Dados", "Especialista em Banco de Dados | DBRE",
+                   "Data Administrator (Oracle) | SR (Remote)"]:
+        assert n.familia(titulo, set())[0] == adm, titulo
+
+
+def test_familia_desenvolvimento_inclui_plsql_e_sql_mas_nao_oracle_erp():
+    dev = Familia.desenvolvimento_dados
+    for titulo in ["Desenvolvedor(a) Oracle PL/SQL", "Desenvolvedor Pl / SQL Sr.", "SQL Developer - Data Migration",
+                   "Desenvolvedor Banco de Dados Sr", "Analista ETL - Oracle", "Senior Oracle SQL Developer"]:
+        assert n.familia(titulo, set())[0] == dev, titulo
+    assert n.familia("Analista Oracle EBS Financeiro", set())[0] == Familia.outra
+    assert n.familia("Desenvolvedor Java", set())[0] == Familia.outra

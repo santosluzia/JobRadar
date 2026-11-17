@@ -45,3 +45,16 @@ def test_documento_invalido_e_barrado(mutacao):
     mutacao(d)
     with pytest.raises(ContractError):
         validar({"jobs": d})
+
+
+def test_familia_interna_nova_sai_como_outra_no_contrato_v1():
+    from jobradar.models import Familia
+    from jobradar.publishing.exporter import _familia_v1
+    assert _familia_v1("engenharia_dados") == "engenharia_dados"
+    assert _familia_v1("administracao_dados") == "outra"
+    d = _doc_jobs()
+    d["data"]["items"][0]["family"] = "administracao_dados"
+    with pytest.raises(ContractError):        # enum fechado: ampliar é mudança major (v2)
+        validar({"jobs": d})
+    assert {f.value for f in Familia} - {"administracao_dados"} == set(schemas()["jobs"]["properties"]["data"]
+                                                                      ["properties"]["items"]["items"]["properties"]["family"]["enum"])

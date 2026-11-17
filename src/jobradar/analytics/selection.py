@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from ..transformations.normalize import TITULO_GENERICO, titulo_sem_genero
 from ..transformations.text import normalizar
 
 FUSO = ZoneInfo("America/Sao_Paulo")
@@ -33,14 +34,32 @@ def publicadas_no_periodo(jobs: pd.DataFrame, periodo: str, agora: datetime) -> 
     return (pub >= inicio).fillna(False)
 
 
+def por_competencias(jobs: pd.DataFrame, skills: pd.DataFrame, regra: dict[str, Any] | None) -> pd.Series:
+    """Máscara: vaga de família `outra` com título genérico (analista, desenvolvedor, consultor…) que pede ao
+    menos `min_competencias` das `competencias` da regra (scoring.yaml → aderencia.familia_por_competencias).
+    É a mesma regra que tira a penalidade de família no score."""
+    alvo = set((regra or {}).get("competencias") or [])
+    if jobs.empty or not alvo:
+        return pd.Series(False, index=jobs.index)
+    n = skills[skills["skill_id"].isin(alvo)].groupby("job_id")["skill_id"].nunique()
+    generico = jobs["titulo"].map(titulo_sem_genero).str.contains(TITULO_GENERICO, regex=True)
+    pedidas = jobs["job_id"].map(n).fillna(0) >= int(regra.get("min_competencias", 3))
+    return (jobs["familia"] == "outra") & generico & pedidas
+
+
 def relevantes(jobs: pd.DataFrame, skills: pd.DataFrame, filtros: dict[str, Any], agora: datetime,
-               max_dias_publicacao: int = 30) -> pd.Series:
-    """Máscara booleana. Vagas fora do filtro continuam no histórico e nas análises de mercado."""
+               max_dias_publicacao: int = 30, regra_competencias: dict[str, Any] | None = None) -> pd.Series:
+    """Máscara booleana. Vagas fora do filtro continuam no histórico e nas análises de mercado.
+    Com `filtros.incluir_por_competencias`, uma vaga `outra` que pede competências de dados suficientes
+    (`regra_competencias`) também passa no filtro de família."""
     if jobs.empty:
         return pd.Series(dtype=bool)
     m = jobs["is_canonica"].fillna(False) & (jobs["status"] != "encerrada")
     if filtros.get("familias"):
-        m &= jobs["familia"].isin(filtros["familias"])
+        fam_ok = jobs["familia"].isin(filtros["familias"])
+        if filtros.get("incluir_por_competencias"):
+            fam_ok |= por_competencias(jobs, skills, regra_competencias)
+        m &= fam_ok
     if filtros.get("senioridades"):
         m &= jobs["senioridade"].isin(filtros["senioridades"])
     if filtros.get("modalidades"):

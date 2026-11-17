@@ -18,6 +18,13 @@ busca:
     - etl
     - big data
     - databricks
+    # Administração de dados / DBA (cada termo = 1 chamada Adzuna por execução; ver docs/operations.md)
+    - banco de dados
+    - dba
+    - administrador de dados
+    - database administrator
+    - pl/sql
+    - sql server
   max_dias_publicacao: 30      # vagas publicadas antes disso não entram como "novas"
 
 fontes:
@@ -45,7 +52,8 @@ fontes:
     empresas: [quintoandar, ebanx, wildlifestudios, vtex, c6bank, stone, rdstation, jusbrasil,
                xpinc, btgpactual, inter, agibank]
     titulo_contem: &titulo_dados [dados, data, analytics, bi, business intelligence, etl, elt,
-                                  databricks, spark, dbt, sql]
+                                  databricks, spark, dbt, sql, dba, dbre, database, oracle, postgres,
+                                  postgresql, mysql]
     pausa_segundos: 0.5
   lever:
     ativo: true                # API pública documentada, por empresa
@@ -56,13 +64,18 @@ fontes:
 # Filtros usados para decidir o que é "vaga relevante" (e-mail e jobs.json).
 # Vagas fora do filtro continuam no histórico e entram nas análises de mercado.
 filtros:
-  familias: [engenharia_dados, analytics_engineering, desenvolvimento_dados, analise_dados, governanca_qualidade]
+  familias: [engenharia_dados, analytics_engineering, desenvolvimento_dados, analise_dados, governanca_qualidade,
+             administracao_dados]
+  # Vaga de título genérico (analista, desenvolvedor, consultor…) que pede competências de dados suficientes
+  # também é relevante, mesmo sem família de dados no título (regra em scoring.yaml → familia_por_competencias).
+  incluir_por_competencias: true
   senioridades: [junior, pleno, nao_informada]
   modalidades: [remoto, hibrido, presencial, nao_informada]
   locais:                      # vale para híbrido/presencial; remoto passa sempre
     ufs: [SP]
     cidades: [sao paulo, osasco, barueri, santana de parnaiba, carapicuiba, cotia]
-  tecnologias_interesse: [python, sql, databricks, spark, etl, data_lake, qualidade_dados, governanca, oracle]
+  tecnologias_interesse: [python, sql, plsql, oracle, databricks, spark, etl, data_lake, qualidade_dados, governanca,
+                          tuning_bd]
   exigir_tecnologia_interesse: false   # true = só vagas que citem ao menos uma delas
   palavras_obrigatorias: []    # se preenchido, a vaga precisa conter ao menos uma
   palavras_excludentes: [estagio, estagiario, estagiaria, aprendiz, advogad]   # comparadas com o título; advogad = advogado(a)

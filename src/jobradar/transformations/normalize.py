@@ -28,16 +28,31 @@ MODALIDADE_TEXTO = [
     (Modalidade.presencial, r"\bpresencial\b|\bon-?site\b"),
 ]
 
+# Marcadores de gênero do título ("Engenheiro(a)", "Desenvolvedor/a") saem antes das regras abaixo.
+GENERO = r"\((a|o|as|os|e|es|o/a|a/o)\)|/(a|o)\b"
+_BANCO = r"banco[s]? (de )?dados"
+_ORACLE = r"oracle(?! (ebs|erp|cloud|fusion|hcm|financ|otm|retail|netsuite|apex))"   # banco, não o ERP
+# Ordem importa: vale a primeira família cujo padrão casa com o título.
 FAMILIA_TITULO = [
     (Familia.analytics_engineering, r"analytics engineer|engenheir[oa] de analytics"),
-    (Familia.engenharia_dados, r"engenheir[oa] de (big )?dados|engenharia de dados|data engineer|big data engineer|dataops"),
-    (Familia.desenvolvimento_dados, r"desenvolvedor[a]? (de )?(dados|etl|bi)\b|(etl|bi|data) developer"),
+    (Familia.engenharia_dados, r"engenheir[oa]s? (de )?(big )?dados|engenharia (de )?(plataforma de )?dados|data engineer|"
+                               r"big data engineer|dataops|arquitet[oa]s? de dados|data architect|plataforma de dados|data platforms? engineer"),
+    # DBA e Administração de Dados (AD: modelagem, dicionário e padrões de dados).
+    (Familia.administracao_dados, rf"\bdba\b|\bdbre\b|administrador[a]?(es)? (de )?({_BANCO}|dados)|"
+                                  rf"administracao (de )?({_BANCO}|dados)|analista (de )?(administracao de )?{_BANCO}|"
+                                  rf"(especialista|engenheir[oa]|consultor[a]?|suporte) (de |em )?{_BANCO}|"
+                                  r"database (administrator|admin|engineer|reliability|specialist|analyst)|data administrator"),
+    # Desenvolvimento de dados, incluindo PL/SQL, SQL e banco de dados ("Desenvolvedor Oracle PL/SQL", "SQL Developer").
+    (Familia.desenvolvimento_dados, rf"desenvolvedor[a]? (de )?(dados|etl|bi)\b|(etl|bi|data) developer|"
+                                    rf"(desenvolvedor[a]?|programador[a]?|analista) (de |em )?(pl ?/ ?sql|{_ORACLE}|sql( server)?|{_BANCO}|etl)\b|"
+                                    rf"(pl ?/ ?sql|database|sql|{_ORACLE}( sql)?) developer|engenheir[oa]s? de bi\b|\bbi engineer"),
     (Familia.governanca_qualidade, r"governanca( e [a-z ]+?)? de dados|data governance|qualidade de dados|data quality|data steward|integracao de dados|\bmdm\b"),
-    (Familia.analise_dados, r"analista de (dados|bi)|data analyst|business intelligence|analista de business intelligence"),
+    (Familia.analise_dados, r"analista (de )?(dados|bi)\b|data analyst|business intelligence|analista de business intelligence"),
 ]
 SKILLS_NUCLEO_ENG = {"spark", "airflow", "etl", "databricks", "dbt", "data_lake", "data_warehouse",
                      "kafka", "data_factory", "snowflake"}
-TITULO_GENERICO = r"\b(engenheir[oa]|engineer|desenvolvedor[a]?|developer|analista|programador[a]?)\b"
+TITULO_GENERICO = (r"\b(?:engenheir[oa]|engineer|desenvolvedor[a]?|developer|analista|programador[a]?|"
+                   r"consultor[a]?|consultant|especialista|specialist|arquitet[oa]|architect)\b")
 
 UF = {
     "acre": "AC", "alagoas": "AL", "amapa": "AP", "amazonas": "AM", "bahia": "BA", "ceara": "CE",
@@ -88,8 +103,13 @@ def uf(state: str | None, location_raw: str | None) -> str | None:
     return None
 
 
+def titulo_sem_genero(titulo: str | None) -> str:
+    """Título normalizado sem marcadores de gênero: "Engenheiro(a) de Dados" → "engenheiro de dados"."""
+    return re.sub(r"\s+", " ", re.sub(GENERO, "", normalizar(titulo))).strip()
+
+
 def familia(titulo: str, skills_ids: set[str]) -> tuple[Familia, str]:
-    t = normalizar(titulo)
+    t = titulo_sem_genero(titulo)
     for valor, padrao in FAMILIA_TITULO:
         if re.search(padrao, t):
             return valor, "titulo"

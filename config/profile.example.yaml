@@ -7,7 +7,7 @@
 # objetivos: cada um tem vagas-alvo, score e diagnóstico PRÓPRIOS (cargos diferentes não se misturam
 #            numa nota só). O formato antigo, com um único `objetivo:`, continua aceito.
 #   familias:     engenharia_dados · analytics_engineering · desenvolvimento_dados · analise_dados ·
-#                 governanca_qualidade · outra
+#                 governanca_qualidade · administracao_dados (DBA, Administração de Dados) · outra
 #   senioridades: estagio · junior · pleno · senior · lideranca
 #   modalidades:  remoto · hibrido · presencial
 #

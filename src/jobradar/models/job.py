@@ -30,6 +30,7 @@ class Familia(str, Enum):
     desenvolvimento_dados = "desenvolvimento_dados"
     analise_dados = "analise_dados"
     governanca_qualidade = "governanca_qualidade"
+    administracao_dados = "administracao_dados"   # DBA, Administrador(a) de Dados, Analista de Banco de Dados
     outra = "outra"
 
 

@@ -28,7 +28,8 @@ df["fonte"] = df["source"].map(lambda f: FONTES.get(f, f))
 df["local"] = (df["cidade"].fillna("") + ", " + df["uf"].fillna("")).str.strip(", ").replace("", "não informado")
 df["publicada"] = pd.to_datetime(df["publicada_em"], utc=True, errors="coerce").dt.tz_convert(FUSO)
 df["relevante"] = relevantes(df, snap.skills, s.filtros, agora,
-                             int(s.sources["busca"].get("max_dias_publicacao", 30))).values
+                             int(s.sources["busca"].get("max_dias_publicacao", 30)),
+                             regra_competencias=s.scoring["aderencia"].get("familia_por_competencias")).values
 
 with st.sidebar:
     st.header("Filtros")

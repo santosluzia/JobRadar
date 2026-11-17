@@ -21,7 +21,16 @@ from ..analytics.selection import relevantes
 from ..settings import Settings
 from ..storage import Lake
 from ..transformations.skills import Taxonomy
-from .contract import FILES, MAJOR, SCHEMA_VERSION, schemas
+from .contract import ENUMS, FILES, MAJOR, SCHEMA_VERSION, schemas
+
+# O enum `family` do contrato v1 é fechado (ampliá-lo é mudança major, docs/contracts/README.md). Famílias
+# internas criadas depois (ex.: administracao_dados) saem como `outra` em v1 até existir um v2.
+FAMILIAS_V1 = set(ENUMS["family"])
+
+
+def _familia_v1(familia: str) -> str:
+    return familia if familia in FAMILIAS_V1 else "outra"
+
 
 NOTA = ("Amostra das fontes e termos configurados no JobRadar; não representa o mercado inteiro. "
         "Tendências consideram o volume coletado por período.")
@@ -114,7 +123,7 @@ def construir(s: Settings, agora: datetime, run_id: str, limite_vagas: int = 300
     }, len(c))
 
     # ---- skill-trends (escopo: famílias de dados, sem recorte pessoal)
-    familias = [f for f in s.filtros.get("familias", []) if f != "outra"]
+    familias = [f for f in s.filtros.get("familias", []) if f != "outra" and f in FAMILIAS_V1]
     janela_dias = int(s.scoring["recomendacoes"]["janela_dias"])
     mascara = c["familia"].isin(familias) & (primeira >= agora - timedelta(days=janela_dias))
     atual = market.frequencia_competencias(snap, mascara)
@@ -142,7 +151,7 @@ def construir(s: Settings, agora: datetime, run_id: str, limite_vagas: int = 300
     }, n_atual)
 
     # ---- jobs (vagas relevantes, sem descrição e sem score pessoal)
-    m = relevantes(snap.jobs, snap.skills, s.filtros, agora, janela_vagas)
+    m = relevantes(snap.jobs, snap.skills, s.filtros, agora, janela_vagas, regra_competencias=s.scoring["aderencia"].get("familia_por_competencias"))
     sel = snap.jobs[m].copy()
     sel["_ord"] = pd.to_datetime(sel["publicada_em"], utc=True).fillna(pd.to_datetime(sel["primeira_observacao"], utc=True))
     sel = sel.sort_values("_ord", ascending=False)
@@ -153,7 +162,7 @@ def construir(s: Settings, agora: datetime, run_id: str, limite_vagas: int = 300
     req = sk[sk["importancia"] == "requisito"].groupby("job_id")["skill_id"].apply(lambda x: sorted(set(x))).to_dict()
     itens = [{
         "id": j["job_id"], "title": j["titulo"][:300], "company": _nulo(j["empresa"]), "city": _nulo(j["cidade"]) or None,
-        "state": _nulo(j["uf"]), "modality": j["modalidade"], "seniority": j["senioridade"], "family": j["familia"],
+        "state": _nulo(j["uf"]), "modality": j["modalidade"], "seniority": j["senioridade"], "family": _familia_v1(j["familia"]),
         "source": j["source"], "url": j["url"], "published_at": _iso(j["publicada_em"]),
         "first_seen_at": _iso(j["primeira_observacao"]), "last_seen_at": _iso(j["ultima_observacao"]),
         "status": j["status"], "skills": todas.get(j["job_id"], []), "required_skills": req.get(j["job_id"], []),
