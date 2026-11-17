@@ -19,6 +19,9 @@ TABLES: dict[str, pa.Schema] = {
         ("atualizado_em", TS),
         # versão da taxonomia com que as competências da vaga foram extraídas (nulo = 1.0.0)
         ("taxonomia_versao", S),
+        # Geografia (ADR 0010; nulo = gravada antes, recalculada na próxima execução): país ISO alfa-2,
+        # região (UF no Brasil, estado/província nos demais), cidade normalizada e versão das regras
+        ("pais_iso", S), ("regiao", S), ("cidade_norm", S), ("geografia_versao", S),
     ]),
     "silver/job_skills": pa.schema([
         ("job_id", S), ("skill_id", S), ("importancia", S), ("termo", S), ("run_id", S),

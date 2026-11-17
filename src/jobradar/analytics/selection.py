@@ -70,7 +70,10 @@ def relevantes(jobs: pd.DataFrame, skills: pd.DataFrame, filtros: dict[str, Any]
     ufs, cidades = set(locais.get("ufs") or []), {normalizar(c) for c in locais.get("cidades") or []}
     if ufs or cidades:
         cidade = jobs["cidade"].map(normalizar)
-        local_ok = (jobs["modalidade"] == "remoto") | jobs["uf"].isna() & cidade.eq("") \
+        # Local não informado passa (não dá para descartar), mas só no Brasil ou sem país: híbrida ou
+        # presencial em outro país não está na região preferida (ADR 0010). Remota passa sempre.
+        no_brasil = jobs["pais_iso"].fillna("BR").eq("BR") if "pais_iso" in jobs else True
+        local_ok = (jobs["modalidade"] == "remoto") | jobs["uf"].isna() & cidade.eq("") & no_brasil \
             | jobs["uf"].isin(ufs) | cidade.isin(cidades)
         m &= local_ok
 
