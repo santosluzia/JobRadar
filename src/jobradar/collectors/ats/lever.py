@@ -3,6 +3,9 @@
 GET https://api.lever.co/v0/postings/{empresa}?mode=json
 Devolve TODAS as vagas publicadas da empresa (sem total informado: quadro vazio é o único sinal de
 lista suspeita). Regras de quadro e de filtro por título: collectors/ats/comum.py.
+
+Descrição: `descriptionPlain` (abertura + corpo) + `lists` (requisitos, responsabilidades… com o título
+de cada lista) + `additionalPlain`. `country` (ISO alfa-2) vai para o país da vaga (ADR 0010).
 """
 from __future__ import annotations
 
@@ -13,6 +16,18 @@ from ...models import RawJob
 from ...transformations.text import html_para_texto
 from ..base import Collector, CollectResult, SourceError
 from .comum import aplicar_filtro, medindo, registrar_quadro
+
+
+def descricao(r: dict[str, Any]) -> str | None:
+    """Texto completo do anúncio: as listas (requisitos, responsabilidades) e o texto adicional ficam fora
+    de `descriptionPlain` na API do Lever."""
+    partes = [r.get("descriptionPlain") or html_para_texto(r.get("description"))]
+    for lista in r.get("lists") or []:
+        if isinstance(lista, dict) and lista.get("content"):
+            texto = html_para_texto(lista["content"])
+            partes.append(f"{lista['text']}:\n{texto}" if lista.get("text") else texto)
+    partes.append(r.get("additionalPlain") or html_para_texto(r.get("additional")))
+    return "\n\n".join(p for p in partes if p)[:20000] or None   # mesmo limite de html_para_texto
 
 
 class LeverCollector(Collector):
@@ -49,7 +64,8 @@ class LeverCollector(Collector):
             location_raw=cat.get("location"),
             modality_raw=self.MODALIDADE.get(r.get("workplaceType") or ""),
             published_at=datetime.fromtimestamp(criado / 1000, tz=timezone.utc) if criado else None,
-            description=r.get("descriptionPlain") or html_para_texto(r.get("description")),
+            country=r.get("country") or None,
+            description=descricao(r),
             board=r.get("_empresa"),
             extra={"team": cat.get("team"), "commitment": cat.get("commitment")},
         )

@@ -25,7 +25,7 @@ from . import normalize
 from .text import normalizar
 
 # Suba quando mudar uma regra: as vagas gravadas com versão diferente são recalculadas na próxima execução.
-GEOGRAFIA_VERSAO = "1.0.0"
+GEOGRAFIA_VERSAO = "1.0.1"   # 1.0.1: blocos regionais (União Europeia, EMEA…) não são cidade
 
 # Nomes normalizados (minúsculas, sem acento) em português, inglês e espanhol.
 PAISES = {
@@ -75,6 +75,7 @@ ALIAS_CIDADE = {nome: canonica for nome, (_, canonica) in CIDADES.items()} | {"s
 # Segmentos do local que não são cidade.
 NAO_CIDADE = re.compile(r"^(remot[eo]|remota|home ?office|hibrid[oa]|hybrid|presencial|on-?site|anywhere|"
                         r"latam|latin america|america latina|latinoamerica|south america|americas|global|worldwide|"
+                        r"europe|europa|european union|uniao europeia|eu|emea|apac|north america|"
                         r"brazil remote|remote brazil)$")
 
 _RX_PAISES = re.compile(r"\b(" + "|".join(sorted((re.escape(p) for p in PAISES), key=len, reverse=True)) + r")\b")

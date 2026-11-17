@@ -29,7 +29,8 @@ Tudo acontece no **GitHub Actions**, quatro vezes por dia, sem servidor e sem cu
    - **Gupy**, pelo endpoint do portal público;
    - **Adzuna**, pela API oficial;
    - **Greenhouse**, pelas APIs públicas de 12 empresas brasileiras;
-   - **Lever**, pela API pública da CI&T.
+   - **Lever**, pela API pública da CI&T;
+   - **Ashby** e **SmartRecruiters**, pelas APIs públicas de vagas, prontas para as empresas que entrarem no catálogo.
 
    Os termos de busca ficam em [`config/sources.yaml`](config/sources.yaml) e as empresas no catálogo [`config/empresas.yaml`](config/empresas.yaml), com país, segmento, plataforma e data da última verificação.
 3. **Bronze.** A resposta bruta de cada fonte é guardada como está (JSON compactado por fonte e dia), para poder reprocessar.
@@ -52,7 +53,7 @@ flowchart LR
   subgraph Fontes
     G[Gupy<br/>portal público]
     A[Adzuna<br/>API oficial]
-    GH[Greenhouse / Lever<br/>APIs públicas por empresa]
+    GH[Greenhouse / Lever / Ashby / SmartRecruiters<br/>APIs públicas por empresa]
   end
   subgraph Actions["GitHub Actions · a cada 6 h (cron-job.org + reservas)"]
     C[Coletores<br/>retry · métricas] --> B[(Bronze<br/>JSON.gz por fonte/dia)]
@@ -85,11 +86,12 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 | Coleta Gupy (endpoint do portal público, sem login) | ✅ não é API oficial, ver limitações |
 | Coleta Adzuna (API oficial) | ✅ depende de `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` |
 | Coleta Greenhouse (12 empresas) e Lever (CI&T), com filtro por título | ✅ |
+| Coleta Ashby e SmartRecruiters (APIs públicas por empresa) | ✅ adaptadores prontos; empresas entram pelo catálogo ([ADR 0011](docs/adr/0011-ashby-e-smartrecruiters.md)) |
 | Catálogo de empresas com situação da coleta por empresa (`jobradar empresas listar`) | ✅ [ADR 0009](docs/adr/0009-catalogo-de-empresas.md) |
 | Bronze / Silver / Gold incrementais em Parquet + DuckDB | ✅ |
 | Deduplicação por id, URL canônica, chave alternativa entre fontes e republicações | ✅ |
 | Histórico de observações e mudanças de requisitos | ✅ |
-| Status ativa / desconhecida / encerrada com regra documentada | ✅ encerra quando a vaga sai do quadro da empresa no Greenhouse/Lever |
+| Status ativa / desconhecida / encerrada com regra documentada | ✅ encerra quando a vaga sai do quadro da empresa no ATS (Greenhouse, Lever, Ashby, SmartRecruiters) |
 | Extração de competências (requisito × desejável) | ✅ regras versionadas com termos, conceitos e evidência por achado; F1 97% no conjunto-ouro ([ADR 0001](docs/adr/0001-extracao-de-competencias-sem-custo.md)) |
 | Competências comportamentais e idioma | ✅ privadas (fora do público, do score e da gold) |
 | Camada semântica local (embeddings) | ⏸️ implementada e medida; desligada por não trazer ganho significativo |
@@ -122,7 +124,7 @@ cp .env.example .env                                       # JOBRADAR_LAKE=../jo
 
 cp config/profile.example.yaml ../jobradar-data/private/profile.yaml   # preencha seu perfil
 
-pytest -q                                   # 291 testes, sem acesso à internet
+pytest -q                                   # 302 testes, sem acesso à internet
 jobradar run                                # coleta + bronze/silver/gold
 jobradar publish --out public_out           # gera e valida o contrato v1
 jobradar notify --dry-run                   # prévia do e-mail em jobradar-email.html
@@ -157,7 +159,7 @@ Variáveis de ambiente: veja [`.env.example`](.env.example). O setup do GitHub (
   medidos num conjunto-ouro pequeno (60 vagas, anotação ainda em rascunho). A separação
   requisito/desejável é heurística. A troca de versão da taxonomia muda o patamar dos percentuais
   (ver docs/taxonomia.md).
-- **Status de vaga.** Sumir de uma busca (Gupy, Adzuna) não encerra a vaga: ela vira "desconhecida" depois de 14 dias sem observação. Só é "encerrada" com evidência: prazo vencido informado pela fonte, ou a vaga saiu do quadro completo da empresa no Greenhouse/Lever.
+- **Status de vaga.** Sumir de uma busca (Gupy, Adzuna) não encerra a vaga: ela vira "desconhecida" depois de 14 dias sem observação. Só é "encerrada" com evidência: prazo vencido informado pela fonte, ou a vaga saiu do quadro completo da empresa num ATS (Greenhouse, Lever, Ashby, SmartRecruiters).
 - **Score não é probabilidade.** Ele mede compatibilidade com o perfil declarado. "Sem evidência" significa que a competência não está registrada no perfil, não que a pessoa não a tenha.
 - **Gupy.** O endpoint usado pelo portal público não é uma API documentada. Pode mudar sem aviso; o coletor detecta mudança de formato e a execução registra a falha.
 - **Horário.** O disparo depende do cron-job.org e de um token do GitHub com validade. Se ele falhar, as reservas do GitHub cobrem o turno, mas com horas de atraso.

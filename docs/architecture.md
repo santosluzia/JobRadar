@@ -25,7 +25,7 @@ src/jobradar/
 
 ## Fluxo de uma execução
 
-1. **Coleta.** Cada coletor ativo busca os termos configurados (Gupy, Adzuna) ou lê o quadro de cada empresa ativa do catálogo (Greenhouse, Lever), com timeout, retry exponencial com jitter para 429/5xx/timeouts e respeito a `Retry-After` (segundos ou data HTTP; acima de 60 s o quadro é dado como falho na execução). Respostas 4xx não são repetidas. Duplicatas entre termos são removidas e contadas.
+1. **Coleta.** Cada coletor ativo busca os termos configurados (Gupy, Adzuna) ou lê o quadro de cada empresa ativa do catálogo (Greenhouse, Lever, Ashby, SmartRecruiters), com timeout, retry exponencial com jitter para 429/5xx/timeouts e respeito a `Retry-After` (segundos ou data HTTP; acima de 60 s o quadro é dado como falho na execução). Respostas 4xx não são repetidas. Duplicatas entre termos são removidas e contadas.
 2. **Bronze.** A resposta bruta vai para `bronze/source=<fonte>/dt=<data>/run=<run_id>.json.gz`, com `run_id`, horário de ingestão, parâmetros, contagem de requisições, retentativas e erros. Isso acontece mesmo quando a fonte falha, para ficar registrado.
 3. **Silver.** Cada registro vira `RawJob`, validado pelo Pydantic; registros inválidos vão para `silver/quality_issues`. Depois é normalizado: senioridade, modalidade, geografia (país ISO, UF, região e cidade; ADR 0010) e família do cargo, cada um com a **origem** registrada em `origem_campos` (`fonte`, `titulo`, `descricao` ou `nao_informada`). Em seguida:
    - **merge incremental** com `silver/jobs`: vaga conhecida atualiza `ultima_observacao` e preserva `primeira_observacao`;
@@ -48,14 +48,14 @@ Se **todas** as fontes falharem, a silver e a gold não são alteradas. Só a ex
 |---|---|
 | `ativa` | Observada nos últimos `status_desconhecido_apos_dias` (padrão 14) |
 | `desconhecida` | Sem observação há mais tempo e sem evidência de encerramento |
-| `encerrada` | Evidência explícita: a vaga **saiu do quadro da empresa** no Greenhouse/Lever (`saiu_do_quadro_da_empresa`) ou a fonte informou prazo de inscrição (`applicationDeadline`) e ele já passou (`prazo_de_inscricao_vencido`) |
+| `encerrada` | Evidência explícita: a vaga **saiu do quadro da empresa** no ATS (Greenhouse, Lever, Ashby, SmartRecruiters: `saiu_do_quadro_da_empresa`) ou a fonte informou prazo de inscrição (`applicationDeadline`) e ele já passou (`prazo_de_inscricao_vencido`) |
 
 Na Gupy e na Adzuna, que são **buscas**, uma vaga pode deixar de aparecer porque saiu do top N, porque o termo mudou ou porque a fonte ficou fora do ar. Por isso, nelas, a ausência nunca é tratada como encerramento.
 
-O Greenhouse e o Lever são diferentes: cada chamada devolve o **quadro inteiro** da empresa. Então, se o quadro foi lido por completo e a vaga não está nele, ela saiu do ar. A regra:
+Os ATS (Greenhouse, Lever, Ashby e SmartRecruiters) são diferentes: cada leitura devolve o **quadro inteiro** da empresa. Então, se o quadro foi lido por completo e a vaga não está nele, ela saiu do ar. A regra:
 
 - o coletor registra, por quadro, os ids de **todas** as vagas listadas, antes do filtro de título (uma vaga que só deixou de passar no filtro continua no quadro e não é encerrada);
-- não servem de evidência: quadro com erro, quadro vazio (suspeito) e, no Greenhouse, quadro cujo `meta.total` não bate com a lista devolvida (`quadros_incompletos` na bronze);
+- não servem de evidência: quadro com erro, quadro vazio (suspeito) e quadro cujo total informado pela API (`meta.total` no Greenhouse, `totalFound` no SmartRecruiters) não bate com a lista devolvida (`quadros_incompletos` na bronze);
 - a vaga ausente recebe `encerrada_em` na primeira execução em que faltou, e a data não muda nas execuções seguintes;
 - só vale para vagas cujo `quadro` foi lido nesta execução: empresa retirada da configuração não encerra nada, e vagas gravadas antes desta regra (sem `quadro`) seguem a regra de 14 dias;
 - se a vaga voltar ao quadro, a nova observação zera `encerrada_em` e ela volta a ser `ativa`.
@@ -224,7 +224,9 @@ Cada score é gravado com a lista de critérios, pontos e motivo. As lacunas sã
 | Gupy | JSON consumido por `portal.gupy.io`, sem autenticação | Não é API documentada. Rota atual: `portal.gupy.io/api/job-search/jobs` (desde 2026-10; as antigas `portal.api.gupy.io/api/v1/jobs` e `employability-portal.gupy.io/api/v1/jobs` respondem 404). `urls` aceita alternativas. Uso com pausa entre requisições |
 | Adzuna | API oficial com `app_id`/`app_key` | A cobertura BR (`/jobs/br/`) precisa ser confirmada na primeira execução com chave real |
 | Greenhouse | `boards-api.greenhouse.io/v1/boards/{token}/jobs` | API pública de job board. Ativa com 12 empresas brasileiras (catálogo `config/empresas.yaml`). Traz todas as vagas da empresa; `titulo_contem` descarta as que não são de dados antes da bronze |
-| Lever | `api.lever.co/v0/postings/{empresa}` | API pública de postings. Ativa com a CI&T (catálogo), com o mesmo filtro por título |
+| Lever | `api.lever.co/v0/postings/{empresa}` | API pública de postings. Ativa com a CI&T (catálogo), com o mesmo filtro por título. Descrição = `descriptionPlain` + `lists` + `additionalPlain`; país pelo campo `country` |
+| Ashby | `api.ashbyhq.com/posting-api/job-board/{quadro}?includeCompensation=true` | Public Job Posting API, sem autenticação. Quadro inteiro, sem total informado. `isListed: false` não é coletada, mas conta como presente no quadro (ADR 0011). Sem empresa ativa no catálogo ainda |
+| SmartRecruiters | `api.smartrecruiters.com/v1/companies/{id}/postings` (+ `/{postingId}`) | Posting API pública (vagas `PUBLIC`, sem autenticação). Paginada (100 por página, `totalFound`); a descrição vem do detalhe, buscado só para as vagas que passam no filtro de título (ADR 0011). Sem empresa ativa no catálogo ainda |
 | Workday | — | Não usado: não há API pública documentada (ADR 0009) |
 | LinkedIn / Indeed | — | Não usados: os termos proíbem automação |
 

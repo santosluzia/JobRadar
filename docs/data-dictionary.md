@@ -40,7 +40,7 @@ erDiagram
 | primeira_observacao / ultima_observacao | timestamp | Primeira e última vez que o pipeline viu a vaga |
 | ultima_execucao | string | run_id da última observação |
 | status / motivo_status | enum / string | ativa · desconhecida · encerrada, com o motivo (ver architecture.md) |
-| quadro | string | Quadro da empresa no ATS (token do Greenhouse ou empresa no Lever); nulo nas buscas (Gupy, Adzuna) |
+| quadro | string | Quadro da empresa no ATS (token do Greenhouse, empresa no Lever, quadro do Ashby ou companyIdentifier do SmartRecruiters); nulo nas buscas (Gupy, Adzuna) |
 | encerrada_em | timestamp | Primeira execução em que o quadro foi lido por completo sem a vaga; nulo se ela continua (ou voltou) no quadro |
 | descricao / descricao_hash | string | Texto plano (máx. 20 mil caracteres; apagado após a retenção) / sha1 |
 | chave_alternativa | string | sha1(empresa, título sem ruído, local), usada para deduplicar entre fontes. Local = UF no Brasil (ou vazio); `país:cidade` nos demais países |
@@ -128,7 +128,7 @@ de cada vaga (`scoring.melhor_por_vaga`); a análise por objetivo filtra `objeti
 
 ## meta/board_runs — uma linha por quadro de ATS (empresa) e execução
 
-`run_id`, `source` (`greenhouse` · `lever`), `quadro` (token/slug do catálogo), `ok`, `completo` (lido por
+`run_id`, `source` (`greenhouse` · `lever` · `ashby` · `smartrecruiters`), `quadro` (token/slug do catálogo), `ok`, `completo` (lido por
 inteiro: serve de evidência para encerrar vagas), `vagas_listadas` (todas as do quadro), `vagas_mantidas`
 (passaram no filtro de título e foram para a bronze), `requisicoes`, `retentativas`, `duracao_s`, `erro`
 (mascarado), `finalizada_em`. Cruzada com `config/empresas.yaml` em `jobradar empresas listar` (ADR 0009).
