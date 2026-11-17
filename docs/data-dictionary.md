@@ -28,11 +28,13 @@ erDiagram
 | url | string | URL original, **com** todos os parâmetros, usada para a candidatura |
 | url_canonica | string | URL sem fragmento e sem parâmetros de rastreamento, usada para deduplicar |
 | titulo / titulo_norm | string | Título original / normalizado (minúsculas, sem acento) |
-| empresa, cidade, uf, pais, local_raw | string | Localização: `uf` é sigla inferida; `local_raw` como veio da fonte |
+| empresa, cidade, uf, pais, local_raw | string | Localização: `uf` é sigla inferida (só no Brasil ou sem país identificado); `pais` e `local_raw` como vieram da fonte |
+| pais_iso / regiao / cidade_norm | string | País ISO 3166-1 alfa-2 inferido; UF no Brasil ou estado/província normalizado nos demais países; cidade normalizada (ADR 0010) |
+| geografia_versao | string | Versão das regras de geografia da linha. Nula ou diferente da atual = recalculada na próxima execução |
 | modalidade | enum | remoto · hibrido · presencial · nao_informada |
 | senioridade | enum | estagio · junior · pleno · senior · lideranca · nao_informada |
 | familia | enum | engenharia_dados · analytics_engineering · desenvolvimento_dados · analise_dados · governanca_qualidade · administracao_dados · outra. Inferida pelo título (marcadores de gênero como "(a)" ignorados); título genérico com descrição de engenharia vira engenharia_dados |
-| origem_campos | json | De onde veio cada campo inferido: `fonte`, `titulo`, `descricao`, `local_raw` ou `nao_informada` |
+| origem_campos | json | De onde veio cada campo inferido: `fonte`, `titulo`, `descricao`, `local_raw` ou `nao_informada` (país: também `cidade`, `uf` ou `multiplos`) |
 | publicada_em | timestamp | Data de publicação informada pela fonte (pode ser nula) |
 | prazo_em | timestamp | Prazo de inscrição, quando a fonte informa |
 | primeira_observacao / ultima_observacao | timestamp | Primeira e última vez que o pipeline viu a vaga |
@@ -41,7 +43,7 @@ erDiagram
 | quadro | string | Quadro da empresa no ATS (token do Greenhouse ou empresa no Lever); nulo nas buscas (Gupy, Adzuna) |
 | encerrada_em | timestamp | Primeira execução em que o quadro foi lido por completo sem a vaga; nulo se ela continua (ou voltou) no quadro |
 | descricao / descricao_hash | string | Texto plano (máx. 20 mil caracteres; apagado após a retenção) / sha1 |
-| chave_alternativa | string | sha1(empresa, título sem ruído, UF), usada para deduplicar entre fontes |
+| chave_alternativa | string | sha1(empresa, título sem ruído, local), usada para deduplicar entre fontes. Local = UF no Brasil (ou vazio); `país:cidade` nos demais países |
 | canonical_job_id / is_canonica | string / bool | Vaga eleita como representante do grupo de duplicatas (entre fontes ou republicação na mesma fonte) |
 | atualizado_em | timestamp | Última escrita da linha |
 | taxonomia_versao | string | Versão de `config/skills.yaml` com que as competências da vaga foram extraídas (nulo = 1.0.0). `jobradar reextrair` usa esta coluna |

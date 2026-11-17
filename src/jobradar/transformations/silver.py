@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..models import RawJob
-from . import normalize
+from . import geografia, normalize
 from .skills import SkillMatch, Taxonomy
 from .text import normalizar, sha1, url_canonica
 
@@ -24,12 +24,13 @@ class CanonicalJob:
     skills: list[SkillMatch]
 
 
-def chave_alternativa(empresa: str | None, titulo: str, uf: str | None) -> str | None:
-    """Mesma empresa + mesmo título (sem ruído) + mesma UF = provável mesma vaga em outra fonte."""
+def chave_alternativa(empresa: str | None, titulo: str, local: str | None) -> str | None:
+    """Mesma empresa + mesmo título (sem ruído) + mesmo local = provável mesma vaga em outra fonte.
+    `local` vem de geografia.chave_local: a UF no Brasil (ou vazio), país + cidade nos demais países."""
     if not empresa:
         return None
     titulo_limpo = " ".join(RUIDO_TITULO.sub(" ", normalizar(titulo)).split())
-    return sha1(normalizar(empresa), titulo_limpo, uf or "")
+    return sha1(normalizar(empresa), titulo_limpo, local or "")
 
 
 def canonizar(raw: RawJob, tax: Taxonomy, agora: datetime, run_id: str) -> CanonicalJob:
@@ -38,7 +39,8 @@ def canonizar(raw: RawJob, tax: Taxonomy, agora: datetime, run_id: str) -> Canon
     senioridade, o_sen = normalize.senioridade(raw.title, raw.description)
     modalidade, o_mod = normalize.modalidade(raw.modality_raw, raw.title, raw.description)
     familia, o_fam = normalize.familia(raw.title, ids)
-    uf = normalize.uf(raw.state, raw.location_raw)
+    loc = geografia.localizar(raw.country, raw.state, raw.city, raw.location_raw)
+    uf = loc.uf
     canon = url_canonica(raw.url)
     job_id = sha1(raw.source, raw.source_job_id) if raw.source_job_id else sha1(raw.source, canon)
 
@@ -54,13 +56,17 @@ def canonizar(raw: RawJob, tax: Taxonomy, agora: datetime, run_id: str) -> Canon
         "cidade": raw.city or None,
         "uf": uf,
         "pais": raw.country or None,
+        "pais_iso": loc.pais_iso,
+        "regiao": loc.regiao,
+        "cidade_norm": loc.cidade_norm,
         "local_raw": raw.location_raw,
         "modalidade": modalidade.value,
         "senioridade": senioridade.value,
         "familia": familia.value,
         "origem_campos": json.dumps({
             "modalidade": o_mod, "senioridade": o_sen, "familia": o_fam,
-            "uf": "fonte" if raw.state else ("local_raw" if uf else "nao_informada"),
+            "uf": "fonte" if raw.state and uf else ("local_raw" if uf else "nao_informada"),
+            "pais": loc.origem_pais,
             "publicada_em": "fonte" if raw.published_at else "nao_informada",
         }),
         "publicada_em": raw.published_at,
@@ -72,7 +78,9 @@ def canonizar(raw: RawJob, tax: Taxonomy, agora: datetime, run_id: str) -> Canon
         "encerrada_em": None,          # vaga observada agora: se tinha saído do quadro, voltou
         "descricao": raw.description,
         "descricao_hash": sha1(raw.description) if raw.description else None,
-        "chave_alternativa": chave_alternativa(raw.company, raw.title, uf),
+        "chave_alternativa": chave_alternativa(raw.company, raw.title,
+                                               geografia.chave_local(loc.pais_iso, uf, loc.regiao, loc.cidade_norm)),
+        "geografia_versao": geografia.GEOGRAFIA_VERSAO,
         "atualizado_em": agora,
         "taxonomia_versao": tax.versao,
     }
