@@ -31,7 +31,7 @@ Tudo acontece no **GitHub Actions**, quatro vezes por dia, sem servidor e sem cu
    - **Greenhouse**, pelas APIs públicas de 12 empresas brasileiras;
    - **Lever**, pela API pública da CI&T.
 
-   Os termos de busca e as empresas ficam em [`config/sources.yaml`](config/sources.yaml).
+   Os termos de busca ficam em [`config/sources.yaml`](config/sources.yaml) e as empresas no catálogo [`config/empresas.yaml`](config/empresas.yaml), com país, segmento, plataforma e data da última verificação.
 3. **Bronze.** A resposta bruta de cada fonte é guardada como está (JSON compactado por fonte e dia), para poder reprocessar.
 4. **Silver.** As vagas viram um schema canônico validado com Pydantic. Nesta camada o pipeline:
    - remove duplicatas por id, URL canônica, chave alternativa entre fontes e republicação do mesmo anúncio com outro id;
@@ -85,6 +85,7 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 | Coleta Gupy (endpoint do portal público, sem login) | ✅ não é API oficial, ver limitações |
 | Coleta Adzuna (API oficial) | ✅ depende de `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` |
 | Coleta Greenhouse (12 empresas) e Lever (CI&T), com filtro por título | ✅ |
+| Catálogo de empresas com situação da coleta por empresa (`jobradar empresas listar`) | ✅ [ADR 0009](docs/adr/0009-catalogo-de-empresas.md) |
 | Bronze / Silver / Gold incrementais em Parquet + DuckDB | ✅ |
 | Deduplicação por id, URL canônica, chave alternativa entre fontes e republicações | ✅ |
 | Histórico de observações e mudanças de requisitos | ✅ |
@@ -121,7 +122,7 @@ cp .env.example .env                                       # JOBRADAR_LAKE=../jo
 
 cp config/profile.example.yaml ../jobradar-data/private/profile.yaml   # preencha seu perfil
 
-pytest -q                                   # 78 testes, sem acesso à internet
+pytest -q                                   # 263 testes, sem acesso à internet
 jobradar run                                # coleta + bronze/silver/gold
 jobradar publish --out public_out           # gera e valida o contrato v1
 jobradar notify --dry-run                   # prévia do e-mail em jobradar-email.html
@@ -142,6 +143,7 @@ jobradar estudo databricks em_andamento --inicio 2026-10-01
 | Arquivo | O que controla |
 |---|---|
 | `config/sources.yaml` | Termos de busca, fontes ligadas, filtros de relevância, e-mail e retenção |
+| `config/empresas.yaml` | Catálogo de empresas monitoradas nos ATS (só `status: ativa` é coletada) |
 | `config/skills.yaml` | Taxonomia de competências, padrões de extração, esforço estimado |
 | `config/scoring.yaml` | Pesos do score de aderência e regras das recomendações |
 | `<lake>/private/profile.yaml` | Seu perfil (privado). Modelo: `config/profile.example.yaml` |

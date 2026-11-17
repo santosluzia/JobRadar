@@ -6,7 +6,8 @@ O JobRadar é um pipeline em lote, executado a cada 6 horas no GitHub Actions (0
 
 ```
 src/jobradar/
-├── collectors/        coleta por fonte (collect → bronze, to_raw_job → silver)
+├── collectors/        coleta por fonte (collect → bronze, to_raw_job → silver); ats/ = um módulo por ATS
+├── empresas/          catálogo de empresas (config/empresas.yaml) e situação da coleta por empresa
 ├── models/            schema canônico (Pydantic) e enums
 ├── transformations/   normalização, competências, chaves de dedup
 ├── storage/           lake em Parquet (sem conhecimento de git)
@@ -24,7 +25,7 @@ src/jobradar/
 
 ## Fluxo de uma execução
 
-1. **Coleta.** Cada coletor ativo busca os termos configurados, com timeout, retry exponencial para 429/5xx/timeouts e respeito a `Retry-After`. Respostas 4xx não são repetidas. Duplicatas entre termos são removidas e contadas.
+1. **Coleta.** Cada coletor ativo busca os termos configurados (Gupy, Adzuna) ou lê o quadro de cada empresa ativa do catálogo (Greenhouse, Lever), com timeout, retry exponencial com jitter para 429/5xx/timeouts e respeito a `Retry-After` (segundos ou data HTTP; acima de 60 s o quadro é dado como falho na execução). Respostas 4xx não são repetidas. Duplicatas entre termos são removidas e contadas.
 2. **Bronze.** A resposta bruta vai para `bronze/source=<fonte>/dt=<data>/run=<run_id>.json.gz`, com `run_id`, horário de ingestão, parâmetros, contagem de requisições, retentativas e erros. Isso acontece mesmo quando a fonte falha, para ficar registrado.
 3. **Silver.** Cada registro vira `RawJob`, validado pelo Pydantic; registros inválidos vão para `silver/quality_issues`. Depois é normalizado: senioridade, modalidade, UF e família do cargo, cada um com a **origem** registrada em `origem_campos` (`fonte`, `titulo`, `descricao` ou `nao_informada`). Em seguida:
    - **merge incremental** com `silver/jobs`: vaga conhecida atualiza `ultima_observacao` e preserva `primeira_observacao`;
@@ -36,7 +37,7 @@ src/jobradar/
 4. **Gold.**
    - `gold/skill_monthly` é recalculado **só para os meses afetados**: meses de vagas novas ou com requisitos alterados.
    - `gold/job_scores` é recalculado para vagas observadas na execução ou quando o perfil muda (o hash do perfil detecta isso).
-5. **Meta.** `meta/runs` e `meta/source_runs` guardam métricas por execução e fonte: coletados, válidos, inválidos, duplicatas, novas, requisições, retentativas, erros e duração.
+5. **Meta.** `meta/runs` e `meta/source_runs` guardam métricas por execução e fonte: coletados, válidos, inválidos, duplicatas, novas, requisições, retentativas, erros e duração. `meta/board_runs` guarda as mesmas medidas por quadro de ATS (empresa), base da "última coleta bem-sucedida" do catálogo.
 
 Se **todas** as fontes falharem, a silver e a gold não são alteradas. Só a execução é registrada, com status `falha`, e o CLI sai com código 2.
 
@@ -221,9 +222,19 @@ Cada score é gravado com a lista de critérios, pontos e motivo. As lacunas sã
 |---|---|---|
 | Gupy | JSON consumido por `portal.gupy.io`, sem autenticação | Não é API documentada. Rota atual: `portal.gupy.io/api/job-search/jobs` (desde 2026-10; as antigas `portal.api.gupy.io/api/v1/jobs` e `employability-portal.gupy.io/api/v1/jobs` respondem 404). `urls` aceita alternativas. Uso com pausa entre requisições |
 | Adzuna | API oficial com `app_id`/`app_key` | A cobertura BR (`/jobs/br/`) precisa ser confirmada na primeira execução com chave real |
-| Greenhouse | `boards-api.greenhouse.io/v1/boards/{token}/jobs` | API pública de job board. Ativa com 12 empresas brasileiras (lista em `config/sources.yaml`). Traz todas as vagas da empresa; `titulo_contem` descarta as que não são de dados antes da bronze |
-| Lever | `api.lever.co/v0/postings/{empresa}` | API pública de postings. Ativa com a CI&T, com o mesmo filtro por título |
+| Greenhouse | `boards-api.greenhouse.io/v1/boards/{token}/jobs` | API pública de job board. Ativa com 12 empresas brasileiras (catálogo `config/empresas.yaml`). Traz todas as vagas da empresa; `titulo_contem` descarta as que não são de dados antes da bronze |
+| Lever | `api.lever.co/v0/postings/{empresa}` | API pública de postings. Ativa com a CI&T (catálogo), com o mesmo filtro por título |
+| Workday | — | Não usado: não há API pública documentada (ADR 0009) |
 | LinkedIn / Indeed | — | Não usados: os termos proíbem automação |
+
+## Catálogo de empresas
+
+Detalhes em docs/adr/0009-catalogo-de-empresas.md.
+
+- **Curado × medido:** `config/empresas.yaml` guarda o que foi conferido (país, segmento, ATS, quadro,
+  status, data da verificação); `meta/board_runs` guarda o que cada execução mediu por quadro.
+- **Só `status: ativa` é coletada.** Candidatas (descoberta assistida, próximo passo) esperam curadoria.
+- **Consulta:** `jobradar empresas listar [--status ativa] [--ats greenhouse]`.
 
 ## Governança e segurança
 

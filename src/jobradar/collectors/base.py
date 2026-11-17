@@ -8,9 +8,12 @@ Assim a silver pode ser reprocessada a partir da bronze sem chamar a fonte de no
 from __future__ import annotations
 
 import logging
+import random
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
@@ -19,6 +22,29 @@ from ..models import RawJob
 
 log = logging.getLogger(__name__)
 USER_AGENT = "JobRadar/1.0 (observatorio pessoal de vagas; github.com/santosluzia/jobradar)"
+# Teto de espera entre tentativas. Retry-After acima disso não é esperado: o quadro é dado como falho
+# nesta execução (esperar minutos estouraria o tempo do job e a próxima execução tenta de novo).
+ESPERA_MAX_S = 60.0
+JITTER = 0.25   # até +25% no backoff exponencial, para requisições não baterem juntas
+
+
+def retry_after(valor: str | None, padrao: float, agora: datetime | None = None) -> float:
+    """Retry-After em segundos ou em data HTTP (RFC 9110). Ausente ou inválido → `padrao`."""
+    if not valor:
+        return padrao
+    try:
+        return max(0.0, float(valor))
+    except ValueError:
+        pass
+    try:
+        quando = parsedate_to_datetime(valor)
+    except (TypeError, ValueError, IndexError):
+        return padrao
+    if quando is None:
+        return padrao
+    if quando.tzinfo is None:
+        quando = quando.replace(tzinfo=timezone.utc)
+    return max(0.0, (quando - (agora or datetime.now(timezone.utc))).total_seconds())
 
 
 @dataclass
@@ -34,6 +60,9 @@ class CollectResult:
     # vagas listadas, antes de qualquer filtro. Só entram quadros lidos por completo; é a evidência
     # usada para encerrar as vagas que saíram do quadro.
     quadros: dict[str, list[str]] = field(default_factory=dict)
+    # Métricas por quadro/empresa (fontes de ATS): ok, completo, vagas listadas e mantidas no filtro,
+    # requisições, retentativas, duração e erro. Viram `meta/board_runs` (última coleta por empresa).
+    por_quadro: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -55,10 +84,12 @@ class Collector(ABC):
 
     def _get(self, url: str, params: dict[str, Any] | None, result: CollectResult,
              attempts: int = 3) -> httpx.Response:
-        """GET com retry exponencial para 429/5xx/timeouts. 4xx (exceto 429) não é repetido."""
+        """GET com retry exponencial (com jitter) para 429/5xx/timeouts, respeitando Retry-After em segundos
+        ou em data HTTP. 4xx (exceto 429) não é repetido. Retry-After acima de ESPERA_MAX_S encerra as
+        tentativas: o quadro fica como falho nesta execução."""
         for i in range(1, attempts + 1):
             result.requests += 1
-            espera = float(2**i)
+            espera = float(2**i) * (1 + random.uniform(0, JITTER))
             try:
                 resp = self.client.get(url, params=params)
             except httpx.TransportError as e:
@@ -66,10 +97,10 @@ class Collector(ABC):
             else:
                 if resp.status_code == 429 or resp.status_code >= 500:
                     erro = SourceError(f"HTTP {resp.status_code}")
-                    try:
-                        espera = float(resp.headers.get("retry-after", espera))
-                    except ValueError:
-                        pass
+                    espera = retry_after(resp.headers.get("retry-after"), espera)
+                    if espera > ESPERA_MAX_S:
+                        raise SourceError(f"{self.name}: HTTP {resp.status_code} com Retry-After de "
+                                          f"{espera:.0f}s (acima de {ESPERA_MAX_S:.0f}s)")
                 elif resp.status_code >= 400:
                     raise SourceError(f"HTTP {resp.status_code} em {url}")
                 else:
@@ -78,7 +109,7 @@ class Collector(ABC):
                 raise SourceError(f"{self.name}: falhou após {attempts} tentativas ({erro})")
             result.retries += 1
             log.warning("%s: %s, nova tentativa em %.0fs", self.name, erro, espera)
-            time.sleep(min(espera, 60) if self.pause else 0)
+            time.sleep(min(espera, ESPERA_MAX_S) if self.pause else 0)
         raise AssertionError("inalcançável")
 
     def _sleep(self) -> None:

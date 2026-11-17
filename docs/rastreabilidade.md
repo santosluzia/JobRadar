@@ -11,7 +11,7 @@ Como responder "de onde veio este número?" e "a operação está saudável?".
 | Por que esta competência foi extraída? | `silver/job_skills`: `evidencia` (a frase), `metodo` (termo · conceito), `confianca`, `posicoes`, `taxonomia_versao` |
 | Qual régua de taxonomia valia? | `silver/jobs.taxonomia_versao`; versões e mudanças em `config/skills.yaml` e docs/taxonomia.md |
 | Qual perfil gerou este score? | `gold/job_scores.perfil_hash` e `objetivo_id`; `calculado_em` |
-| O que foi validado nesta execução? | `meta/validacoes` (contrato público, taxonomia) e `private/validacoes` (perfil, radar.yaml) |
+| O que foi validado nesta execução? | `meta/validacoes` (contrato público, taxonomia, catálogo de empresas) e `private/validacoes` (perfil, radar.yaml) |
 | O que foi enviado e quando? | `meta/notifications`, `private/radar_envios`, `private/relatorios_semanais`, `private/diagnosticos_mensais` |
 | O que mudou no lake? | o histórico de commits do `jobradar-data` (um commit por execução) |
 | Qual versão do contrato público? | `manifest.json` (`schema_version`, `run_id`, `generated_at`) |
@@ -23,6 +23,7 @@ Cada execução grava uma linha por artefato validado:
 | Artefato | Quando | Tabela |
 |---|---|---|
 | `taxonomia` | `jobradar run` e `jobradar pontuar` | `meta/validacoes` |
+| `catalogo_empresas` | `jobradar run` (`config/empresas.yaml`, ADR 0009) | `meta/validacoes` |
 | `contrato_publico` | `jobradar publish` (passou ou não; com contagem de erros) | `meta/validacoes` |
 | `perfil`, `radar_config` | fluxo que usa dado pessoal (`run` sem `--sem-pontuacao`, `pontuar`) | `private/validacoes` |
 

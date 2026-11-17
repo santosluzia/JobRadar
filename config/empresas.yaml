@@ -1,0 +1,54 @@
+# Catálogo de empresas monitoradas nos ATS (dado público e curado; decisão em docs/adr/0009).
+# Validado por Pydantic em src/jobradar/empresas/catalogo.py. Só `status: ativa` entra na coleta.
+#
+# Campos:
+# id                identificador estável (minúsculas, sem espaço)
+# nome, pais        nome de exibição e país (ISO 3166-1 alfa-2)
+# segmento          banco | fintech | servicos_financeiros | seguros | consultoria | tecnologia | telecom | varejo |
+#                   industria | saude | educacao | energia | logistica | imobiliario | jogos | midia | governo | outro
+# site              site institucional (https). Vazio = ainda não conferido
+# pagina_carreiras  página de carreiras da própria empresa (https). Vazio = ainda não conferida
+# ats               greenhouse | lever (com coletor) · ashby | smartrecruiters | gupy | workday | outro (sem coletor)
+# board             token (Greenhouse) ou slug (Lever) do quadro público
+# status            candidata (aguarda curadoria) | ativa (coletada) | pausada | descartada
+# verificada_em     última conferência humana do quadro (obrigatória para ativa)
+# origem            manual | descoberta
+#
+# A URL da API e a página do quadro no ATS são derivadas de ats + board (não repita aqui).
+# A última coleta bem-sucedida é medida a cada execução (meta/board_runs): `jobradar empresas listar`.
+# Para incluir uma empresa, confirme o quadro em boards.greenhouse.io/<token> ou jobs.lever.co/<slug>
+# e anote a data em verificada_em (docs/operations.md, "Incluir uma empresa").
+
+versao: 1
+
+empresas:
+  # ------------------------------------------------------------ Greenhouse (tokens conferidos em 2026-10-17:
+  # vagas no Brasil e ao menos uma vaga de dados na sondagem)
+  - {id: quintoandar, nome: QuintoAndar, pais: BR, segmento: imobiliario, ats: greenhouse, board: quintoandar,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: ebanx, nome: EBANX, pais: BR, segmento: fintech, ats: greenhouse, board: ebanx,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: wildlifestudios, nome: Wildlife Studios, pais: BR, segmento: jogos, ats: greenhouse, board: wildlifestudios,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: vtex, nome: VTEX, pais: BR, segmento: tecnologia, ats: greenhouse, board: vtex,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: c6bank, nome: C6 Bank, pais: BR, segmento: banco, ats: greenhouse, board: c6bank,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: stone, nome: Stone, pais: BR, segmento: fintech, ats: greenhouse, board: stone,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: rdstation, nome: RD Station, pais: BR, segmento: tecnologia, ats: greenhouse, board: rdstation,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: jusbrasil, nome: Jusbrasil, pais: BR, segmento: tecnologia, ats: greenhouse, board: jusbrasil,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: xpinc, nome: XP Inc., pais: BR, segmento: servicos_financeiros, ats: greenhouse, board: xpinc,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: btgpactual, nome: BTG Pactual, pais: BR, segmento: banco, ats: greenhouse, board: btgpactual,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: inter, nome: Inter, pais: BR, segmento: banco, ats: greenhouse, board: inter,
+     status: ativa, verificada_em: 2026-10-17}
+  - {id: agibank, nome: Agibank, pais: BR, segmento: banco, ats: greenhouse, board: agibank,
+     status: ativa, verificada_em: 2026-10-17}
+
+  # ------------------------------------------------------------ Lever
+  - {id: ciandt, nome: CI&T, pais: BR, segmento: consultoria, ats: lever, board: ciandt,
+     status: ativa, verificada_em: 2026-10-16}

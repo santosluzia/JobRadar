@@ -1,7 +1,7 @@
 """Resultado das validações por execução (Etapa 8, rastreabilidade): `meta/validacoes`.
 
-Cada linha diz o que foi validado (contrato público, taxonomia, perfil, configuração do Radar), em qual
-versão, se passou e quantos erros. O detalhe é curto e mascarado (nunca leva dado pessoal nem segredo):
+Cada linha diz o que foi validado (contrato público, taxonomia, catálogo de empresas, perfil, configuração do
+Radar), em qual versão, se passou e quantos erros. O detalhe é curto e mascarado (nunca leva dado pessoal nem segredo):
 para o perfil, só a quantidade de erros e o primeiro campo com problema.
 """
 from __future__ import annotations
@@ -37,9 +37,11 @@ def _erros_pydantic(e: Exception) -> tuple[int, str]:
 
 def validar_configuracoes(s, lake: Lake, run_id: str, incluir_privadas: bool, agora: datetime | None = None) -> list[dict[str, Any]]:
     """Taxonomia sempre; perfil e radar.yaml só no fluxo privado (o público não lê dados pessoais)."""
+    from .empresas import carregar_catalogo
     from .transformations.skills import Taxonomy
     resultados = []
-    checagens = [("taxonomia", lambda: Taxonomy(s.skills).versao)]
+    checagens = [("taxonomia", lambda: Taxonomy(s.skills).versao),
+                 ("catalogo_empresas", lambda: carregar_catalogo(s.empresas).versao)]
     if incluir_privadas:
         from .notifications.radar import carregar_config
         from .scoring import Profile

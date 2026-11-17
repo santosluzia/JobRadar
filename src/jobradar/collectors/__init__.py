@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 
+from ..empresas.catalogo import carregar_catalogo
 from ..settings import Settings
 from .adzuna import AdzunaCollector
 from .ats import GreenhouseCollector, LeverCollector
@@ -25,8 +26,11 @@ def build_collectors(s: Settings) -> list[Collector]:
             coletores.append(AdzunaCollector(s.fonte("adzuna"), app_id, app_key))
         else:
             log.info("adzuna ativa no config, mas sem ADZUNA_APP_ID/ADZUNA_APP_KEY — ignorada")
+    catalogo = carregar_catalogo(s.empresas)   # inválido = erro: a coleta não roda com catálogo quebrado
     for nome, cls in (("greenhouse", GreenhouseCollector), ("lever", LeverCollector)):
-        cfg = s.fonte(nome)
-        if cfg.get("ativo") and cfg.get("empresas"):
+        cfg = dict(s.fonte(nome))
+        # Catálogo (empresas ativas) + lista antiga em sources.yaml, se houver; sem repetir quadro.
+        cfg["empresas"] = list(dict.fromkeys([*catalogo.quadros_ativos(nome), *(cfg.get("empresas") or [])]))
+        if cfg.get("ativo") and cfg["empresas"]:
             coletores.append(cls(cfg))
     return coletores
