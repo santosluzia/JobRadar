@@ -220,3 +220,69 @@ def test_metricas_por_quadro_vao_para_meta_board_runs_e_bronze(settings, fake):
     assert not r2["ok"] and "503" in r2["erro"] and r2["retentativas"] == 2
     bronze = next(settings.lake.glob("bronze/source=greenhouse/dt=*/run=r1.json.gz"))
     assert lake.read_bronze(bronze)["por_quadro"]["acme"]["vagas_listadas"] == 1
+
+
+def _adzuna_em(id_, estado, descricao, titulo="Oracle DBA - Remote, Latin America"):
+    return {**_adzuna(id_, empresa="Bluelight", descricao=descricao), "title": titulo,
+            "location": {"display_name": f"{estado}, Brasil", "area": ["Brasil", estado]}}
+
+
+def test_vaga_remota_repetida_por_estado_vira_uma_so(settings, fake):
+    remoto, presencial = "Trabalho 100% remoto. Requisitos: Oracle.", "Trabalho presencial. Requisitos: Oracle."
+    fake.adzuna = [_adzuna_em("rj", "Rio de Janeiro", remoto), _adzuna_em("pe", "Pernambuco", remoto),
+                   _adzuna_em("p1", "Bahia", presencial, "Oracle DBA"), _adzuna_em("p2", "Paraná", presencial, "Oracle DBA")]
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert jobs.loc["rj", "uf"] != jobs.loc["pe", "uf"]
+    assert jobs.loc["rj", "canonical_job_id"] == jobs.loc["pe", "canonical_job_id"]   # remota: UF não conta
+    assert jobs.loc["p1", "is_canonica"] and jobs.loc["p2", "is_canonica"]           # presencial: UF conta
+    assert next(f for f in rep.fontes if f.source == "adzuna").novas == 3   # 2 presenciais + 1 remota
+
+
+# ---------------------------------------------------------------- geografia e deduplicação internacional
+def _gh(id_, local, titulo="Data Engineer"):
+    from ..conftest import iso
+    return {"id": id_, "title": titulo, "absolute_url": f"https://boards.greenhouse.io/acme/jobs/{id_}",
+            "location": {"name": local}, "updated_at": iso(1), "company_name": "Acme",
+            "content": "&lt;p&gt;Requirements: Python, SQL, Spark.&lt;/p&gt;"}
+
+
+def test_mesma_vaga_em_cidades_ou_paises_diferentes_nao_vira_duplicata(settings, fake):
+    fake.greenhouse = {"jobs": [_gh(1, "Lisbon, Portugal"), _gh(2, "Porto, Portugal"),
+                                _gh(3, "Remote - Brazil"), _gh(4, "Remote - Portugal"),
+                                _gh(5, "Madrid, Spain")]}
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    jobs = Lake(settings.lake).read("silver/jobs")
+    gh = jobs[jobs["source"] == "greenhouse"].set_index("source_job_id")
+    assert gh["is_canonica"].all()                                   # 5 vagas, 5 canônicas
+    assert gh.loc["1", "pais_iso"] == "PT" and gh.loc["1", "cidade_norm"] == "lisboa"
+    assert gh.loc["5", "pais_iso"] == "ES" and pd.isna(gh.loc["5", "uf"])   # ES não vira Espírito Santo
+    assert gh.loc["3", "pais_iso"] == "BR" and (gh["geografia_versao"] == "1.0.0").all()
+
+
+def test_historico_antigo_ganha_geografia_sem_mudar_as_chaves_do_brasil(settings, fake):
+    from jobradar.transformations.silver import RUIDO_TITULO
+    from jobradar.transformations.text import normalizar, sha1
+    fake.greenhouse = {"jobs": [_gh(1, "Lisbon, Portugal"), _gh(2, "Porto, Portugal")]}
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    lake = Lake(settings.lake)
+    novo = lake.read("silver/jobs")
+    # Simula o histórico gravado antes da geografia: sem as colunas novas e com a chave só pela UF.
+    antigo = novo.copy()
+    antigo[["pais_iso", "regiao", "cidade_norm", "geografia_versao"]] = None
+    antigo["chave_alternativa"] = [
+        sha1(normalizar(e), " ".join(RUIDO_TITULO.sub(" ", normalizar(t)).split()), u if isinstance(u, str) else "")
+        if isinstance(e, str) else None for e, t, u in zip(antigo["empresa"], antigo["titulo"], antigo["uf"])]
+    lake.write("silver/jobs", antigo)
+    rep = pipeline.run(settings, [], run_id="r2", agora=AGORA + timedelta(hours=6))
+    assert rep.status == "falha"                       # sem coletor nada é migrado: a silver não é tocada
+    # Com coleta (só da Gupy, as vagas do Greenhouse ficam no histórico), a migração acontece.
+    fake.falhar.update({"greenhouse", "adzuna"})
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r3", agora=AGORA + timedelta(hours=12))
+    depois = lake.read("silver/jobs").set_index("job_id")
+    assert rep.chaves_geografia_alteradas == 2         # só Lisboa e Porto mudam de chave
+    ref = novo.set_index("job_id")
+    assert (depois.loc[ref.index, "chave_alternativa"] == ref["chave_alternativa"]).all()
+    assert depois.loc[depois["source"] == "greenhouse", "is_canonica"].all()
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r4", agora=AGORA + timedelta(hours=18))
+    assert rep.chaves_geografia_alteradas == 0         # idempotente

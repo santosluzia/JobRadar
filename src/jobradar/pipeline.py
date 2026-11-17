@@ -24,8 +24,8 @@ from .collectors.base import Collector, CollectResult
 from .scoring import Profile, calcular
 from .settings import Settings
 from .storage import Lake, utcnow
-from .transformations import normalize
-from .transformations.silver import PREFERENCIA_FONTE, canonizar
+from .transformations import geografia, normalize
+from .transformations.silver import PREFERENCIA_FONTE, canonizar, chave_alternativa
 from .transformations.skills import VERSAO_LEGADA, SkillMatch, Taxonomy, efetivas, so_tecnicas, versoes
 from .transformations.skills import linhas as linhas_skills
 from .transformations.text import normalizar
@@ -61,6 +61,7 @@ class RunReport:
     duplicatas_entre_fontes: int = 0
     requisitos_alterados: int = 0
     encerradas_fora_do_quadro: int = 0   # saíram do quadro da empresa no ATS nesta execução
+    chaves_geografia_alteradas: int = 0  # vagas do histórico com chave de dedup refeita pela geografia (ADR 0010)
     meses_recalculados: list[str] = field(default_factory=list)
     vagas_pontuadas: int = 0
     vagas_enriquecidas: int = 0          # passaram pela camada semântica local (se ativa)
@@ -171,6 +172,9 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     # Microssegundos, como no schema: com a coluna toda nula o pandas 3.1 infere segundos e depois
     # recusa gravar `agora` (que tem microssegundos) nela.
     jobs["encerrada_em"] = pd.to_datetime(jobs["encerrada_em"], utc=True).dt.as_unit("us")
+    # Migração incremental: vagas gravadas com outra versão das regras de geografia (ou antes delas)
+    # ganham país, região, cidade e a chave alternativa nova. Vagas do Brasil mantêm a mesma chave.
+    jobs, report.chaves_geografia_alteradas = geografia.atualizar(jobs)
     report.encerradas_fora_do_quadro = _encerrar_fora_do_quadro(jobs, quadros, agora)
     jobs = _status(jobs, agora, s.retencao)
     jobs = _canonicas(jobs)
@@ -376,24 +380,36 @@ def _canonicas(jobs: pd.DataFrame) -> pd.DataFrame:
     """Elege uma vaga canônica por grupo de duplicatas (ATS direto > agregador; depois a mais antiga).
 
     Duas vagas são a mesma quando batem em QUALQUER uma das chaves (e o grupo é transitivo):
-    - chave alternativa: empresa + título sem ruído + UF, entre fontes;
-    - republicação: mesma fonte + mesma empresa (ou ambas sem empresa) + mesmo título + mesma UF +
-      mesma descrição. Pega o agregador que republica o anúncio com outro id e outra data, inclusive
+    - chave alternativa: empresa + título sem ruído + local, entre fontes;
+    - remota: empresa + título sem ruído + país, só entre vagas remotas (o agregador repete o anúncio
+      por UF; remoto no Brasil e remoto em Portugal continuam vagas diferentes);
+    - republicação: mesma fonte + mesma empresa (ou ambas sem empresa) + mesmo título + mesmo local +
+      mesma descrição.
+    Local = geografia.chave_local: a UF no Brasil (ou vazio), país + cidade/região nos demais países. Pega o agregador que republica o anúncio com outro id e outra data, inclusive
       sem empresa (aí não há chave alternativa). Empresas diferentes com o mesmo texto não se juntam.
     Nada é apagado: as demais ficam `is_canonica = false`.
     """
     jobs = jobs.copy()
     jobs["_pref"] = jobs["source"].map(PREFERENCIA_FONTE).fillna(5)
     jobs = jobs.sort_values(["_pref", "primeira_observacao", "job_id"]).reset_index(drop=True)
+    local = pd.Series([geografia.chave_local(p, u, r, c) for p, u, r, c in
+                       zip(jobs["pais_iso"], jobs["uf"], jobs["regiao"], jobs["cidade_norm"])],
+                      index=jobs.index, dtype="object")
     republicacao = (jobs["source"] + "|" + jobs["empresa"].fillna("").map(normalizar) + "|"
-                    + jobs["titulo_norm"].fillna("") + "|" + jobs["uf"].fillna("") + "|"
+                    + jobs["titulo_norm"].fillna("") + "|" + local + "|"
                     + jobs["descricao_hash"]).where(jobs["descricao_hash"].notna())
+    # Vaga remota não tem UF: o agregador repete o mesmo anúncio uma vez por estado (no mesmo país).
+    remota = pd.Series([chave_alternativa(e, t, geografia.chave_remota(p))
+                        if m == "remoto" and isinstance(e, str) else None
+                        for e, t, m, p in zip(jobs["empresa"], jobs["titulo"].fillna(""), jobs["modalidade"],
+                                              jobs["pais_iso"])],
+                       index=jobs.index, dtype="object")
     # Componentes conexos: cada vaga aponta para a posição da primeira (na ordem de preferência) do
     # grupo; repete até estabilizar, porque A~B por uma chave e B~C pela outra também juntam A e C.
     grupo = pd.Series(range(len(jobs)), dtype="int64")
     while True:
         novo = grupo
-        for chave in (jobs["chave_alternativa"], republicacao):
+        for chave in (jobs["chave_alternativa"], republicacao, remota):
             novo = novo.groupby(chave).transform("min").fillna(novo).astype("int64")
         if novo.equals(grupo):
             break

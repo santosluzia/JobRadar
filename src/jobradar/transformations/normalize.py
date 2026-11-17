@@ -31,7 +31,12 @@ MODALIDADE_TEXTO = [
 # Marcadores de gênero do título ("Engenheiro(a)", "Desenvolvedor/a") saem antes das regras abaixo.
 GENERO = r"\((a|o|as|os|e|es|o/a|a/o)\)|/(a|o)\b"
 _BANCO = r"banco[s]? (de )?dados"
-_ORACLE = r"oracle(?! (ebs|erp|cloud|fusion|hcm|financ|otm|retail|netsuite|apex))"   # banco, não o ERP
+# Produtos Oracle que não são o banco: ERP, aplicações e middleware.
+_ORACLE_APLICACOES = (r"ebs|e-business|erp|cloud|fusion|hcm|financ|otm|retail|netsuite|apex|bpm|soa|oic|osb|"
+                      r"weblogic|forms|integration|jde|siebel|peoplesoft")
+_ORACLE = rf"oracle(?! (?:{_ORACLE_APLICACOES}))"   # o banco, não o ERP nem o middleware
+# Título de ERP/middleware Oracle: não é vaga de dados, mesmo pedindo PL/SQL (regra de competências).
+TITULO_FORA_DE_DADOS = rf"\boracle (?:{_ORACLE_APLICACOES})\b|\b(?:oic|osb|bpm|soa)\b"
 # Ordem importa: vale a primeira família cujo padrão casa com o título.
 FAMILIA_TITULO = [
     (Familia.analytics_engineering, r"analytics engineer|engenheir[oa] de analytics"),
@@ -106,6 +111,13 @@ def uf(state: str | None, location_raw: str | None) -> str | None:
 def titulo_sem_genero(titulo: str | None) -> str:
     """Título normalizado sem marcadores de gênero: "Engenheiro(a) de Dados" → "engenheiro de dados"."""
     return re.sub(r"\s+", " ", re.sub(GENERO, "", normalizar(titulo))).strip()
+
+
+def titulo_conta_por_competencias(titulo: str | None) -> bool:
+    """Título genérico (analista, desenvolvedor, consultor…) que não é de ERP/middleware Oracle: a vaga pode
+    contar pelas competências de dados que pede (scoring.yaml → aderencia.familia_por_competencias)."""
+    t = titulo_sem_genero(titulo)
+    return bool(re.search(TITULO_GENERICO, t)) and not re.search(TITULO_FORA_DE_DADOS, t)
 
 
 def familia(titulo: str, skills_ids: set[str]) -> tuple[Familia, str]:

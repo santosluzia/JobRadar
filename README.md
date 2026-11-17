@@ -122,7 +122,7 @@ cp .env.example .env                                       # JOBRADAR_LAKE=../jo
 
 cp config/profile.example.yaml ../jobradar-data/private/profile.yaml   # preencha seu perfil
 
-pytest -q                                   # 263 testes, sem acesso à internet
+pytest -q                                   # 291 testes, sem acesso à internet
 jobradar run                                # coleta + bronze/silver/gold
 jobradar publish --out public_out           # gera e valida o contrato v1
 jobradar notify --dry-run                   # prévia do e-mail em jobradar-email.html

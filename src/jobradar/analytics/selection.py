@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from ..transformations.normalize import TITULO_GENERICO, titulo_sem_genero
+from ..transformations.normalize import titulo_conta_por_competencias
 from ..transformations.text import normalizar
 
 FUSO = ZoneInfo("America/Sao_Paulo")
@@ -35,14 +35,15 @@ def publicadas_no_periodo(jobs: pd.DataFrame, periodo: str, agora: datetime) -> 
 
 
 def por_competencias(jobs: pd.DataFrame, skills: pd.DataFrame, regra: dict[str, Any] | None) -> pd.Series:
-    """Máscara: vaga de família `outra` com título genérico (analista, desenvolvedor, consultor…) que pede ao
+    """Máscara: vaga de família `outra` com título genérico (analista, desenvolvedor, consultor…, fora de ERP e
+    middleware Oracle) que pede ao
     menos `min_competencias` das `competencias` da regra (scoring.yaml → aderencia.familia_por_competencias).
     É a mesma regra que tira a penalidade de família no score."""
     alvo = set((regra or {}).get("competencias") or [])
     if jobs.empty or not alvo:
         return pd.Series(False, index=jobs.index)
     n = skills[skills["skill_id"].isin(alvo)].groupby("job_id")["skill_id"].nunique()
-    generico = jobs["titulo"].map(titulo_sem_genero).str.contains(TITULO_GENERICO, regex=True)
+    generico = jobs["titulo"].map(titulo_conta_por_competencias).astype(bool)
     pedidas = jobs["job_id"].map(n).fillna(0) >= int(regra.get("min_competencias", 3))
     return (jobs["familia"] == "outra") & generico & pedidas
 
@@ -69,7 +70,10 @@ def relevantes(jobs: pd.DataFrame, skills: pd.DataFrame, filtros: dict[str, Any]
     ufs, cidades = set(locais.get("ufs") or []), {normalizar(c) for c in locais.get("cidades") or []}
     if ufs or cidades:
         cidade = jobs["cidade"].map(normalizar)
-        local_ok = (jobs["modalidade"] == "remoto") | jobs["uf"].isna() & cidade.eq("") \
+        # Local não informado passa (não dá para descartar), mas só no Brasil ou sem país: híbrida ou
+        # presencial em outro país não está na região preferida (ADR 0010). Remota passa sempre.
+        no_brasil = jobs["pais_iso"].fillna("BR").eq("BR") if "pais_iso" in jobs else True
+        local_ok = (jobs["modalidade"] == "remoto") | jobs["uf"].isna() & cidade.eq("") & no_brasil \
             | jobs["uf"].isin(ufs) | cidade.isin(cidades)
         m &= local_ok
 
