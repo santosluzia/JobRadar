@@ -40,7 +40,8 @@ O `GITHUB_TOKEN` é automático. O workflow pede só `contents: write`, que vale
 
 ## 4.1 Incluir uma empresa (catálogo)
 
-1. Confirme o quadro público: `boards.greenhouse.io/<token>` (Greenhouse) ou `jobs.lever.co/<slug>` (Lever).
+1. Confirme o quadro público: `boards.greenhouse.io/<token>` (Greenhouse), `jobs.lever.co/<slug>` (Lever),
+   `jobs.ashbyhq.com/<quadro>` (Ashby) ou `api.smartrecruiters.com/v1/companies/<id>/postings` (SmartRecruiters).
    O quadro precisa listar vagas, e de preferência ao menos uma de dados.
 2. Acrescente a entrada em `config/empresas.yaml` com `status: ativa` e `verificada_em` = data da conferência.
    Deixe `site` e `pagina_carreiras` vazios se não tiver conferido.

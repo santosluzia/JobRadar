@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # Plataformas conhecidas. Só as de COLETORES têm coletor; as demais podem aparecer em empresas
 # candidatas (descoberta assistida) e ficam fora da coleta até haver integração pública viável.
 Ats = Literal["greenhouse", "lever", "ashby", "smartrecruiters", "gupy", "workday", "outro"]
-COLETORES = ("greenhouse", "lever")
+COLETORES = ("greenhouse", "lever", "ashby", "smartrecruiters")
 Status = Literal["candidata", "ativa", "pausada", "descartada"]
 Segmento = Literal["banco", "fintech", "servicos_financeiros", "seguros", "consultoria", "tecnologia", "telecom",
                    "varejo", "industria", "saude", "educacao", "energia", "logistica", "imobiliario", "jogos",
@@ -29,10 +29,13 @@ Segmento = Literal["banco", "fintech", "servicos_financeiros", "seguros", "consu
 API_URL = {
     "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{board}/jobs",
     "lever": "https://api.lever.co/v0/postings/{board}",
+    "ashby": "https://api.ashbyhq.com/posting-api/job-board/{board}",
+    "smartrecruiters": "https://api.smartrecruiters.com/v1/companies/{board}/postings",
 }
-PAGINA_ATS = {
+PAGINA_ATS = {   # só as conferidas (o link das vagas aponta para elas)
     "greenhouse": "https://boards.greenhouse.io/{board}",
     "lever": "https://jobs.lever.co/{board}",
+    "ashby": "https://jobs.ashbyhq.com/{board}",
 }
 
 
@@ -46,7 +49,8 @@ class Empresa(BaseModel):
     site: str | None = None                            # site institucional
     pagina_carreiras: str | None = None                # página de carreiras da própria empresa
     ats: Ats
-    board: str | None = None                           # token (Greenhouse), slug (Lever) ou companyId
+    board: str | None = None                           # token (Greenhouse), slug (Lever), nome do quadro (Ashby)
+                                                       # ou companyIdentifier (SmartRecruiters)
     status: Status
     verificada_em: date | None = None                  # última vez que o quadro foi conferido por alguém
     origem: Literal["manual", "descoberta"] = "manual"

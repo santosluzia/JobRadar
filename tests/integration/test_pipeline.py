@@ -6,6 +6,7 @@ import pyarrow.parquet as pq
 
 from jobradar import pipeline
 from jobradar.storage import Lake
+from jobradar.transformations.geografia import GEOGRAFIA_VERSAO
 
 from ..conftest import AGORA, adzuna_jobs, gupy_jobs
 
@@ -257,7 +258,7 @@ def test_mesma_vaga_em_cidades_ou_paises_diferentes_nao_vira_duplicata(settings,
     assert gh["is_canonica"].all()                                   # 5 vagas, 5 canônicas
     assert gh.loc["1", "pais_iso"] == "PT" and gh.loc["1", "cidade_norm"] == "lisboa"
     assert gh.loc["5", "pais_iso"] == "ES" and pd.isna(gh.loc["5", "uf"])   # ES não vira Espírito Santo
-    assert gh.loc["3", "pais_iso"] == "BR" and (gh["geografia_versao"] == "1.0.0").all()
+    assert gh.loc["3", "pais_iso"] == "BR" and (gh["geografia_versao"] == GEOGRAFIA_VERSAO).all()
 
 
 def test_historico_antigo_ganha_geografia_sem_mudar_as_chaves_do_brasil(settings, fake):
@@ -286,3 +287,28 @@ def test_historico_antigo_ganha_geografia_sem_mudar_as_chaves_do_brasil(settings
     assert depois.loc[depois["source"] == "greenhouse", "is_canonica"].all()
     rep = pipeline.run(settings, fake.collectors(settings), run_id="r4", agora=AGORA + timedelta(hours=18))
     assert rep.chaves_geografia_alteradas == 0         # idempotente
+
+
+def test_ashby_entra_no_pipeline_e_encerra_vaga_que_sai_do_quadro(settings):
+    import httpx
+
+    from jobradar.collectors import AshbyCollector
+    from ..conftest import iso
+    vagas = [{"id": f"u{i}", "title": "Data Engineer" if i < 3 else "Sales", "location": "Lisbon, Portugal",
+              "workplaceType": "OnSite", "isListed": True, "publishedAt": iso(1), "jobUrl": f"https://jobs.ashbyhq.com/acme/u{i}",
+              "descriptionPlain": "Requirements: Python, SQL.", "address": {"postalAddress": {"addressCountry": "Portugal"}}}
+             for i in range(1, 5)]
+
+    def coletor(lista):
+        c = AshbyCollector({"empresas": ["acme"], "nomes": {"acme": "Acme"}, "titulo_contem": ["data"]},
+                           client=httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, json={"jobs": lista}))))
+        c.pause = 0
+        return c
+    pipeline.run(settings, [coletor(vagas)], run_id="r1", agora=AGORA)
+    pipeline.run(settings, [coletor(vagas[1:])], run_id="r2", agora=AGORA + timedelta(hours=6))   # u1 saiu do quadro
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert list(jobs["source"].unique()) == ["ashby"] and set(jobs.index) == {"u1", "u2"}
+    assert jobs.loc["u1", "status"] == "encerrada" and jobs.loc["u2", "status"] == "ativa"
+    assert jobs.loc["u2", "pais_iso"] == "PT" and jobs.loc["u2", "empresa"] == "Acme"
+    br = Lake(settings.lake).read("meta/board_runs")
+    assert set(br["source"]) == {"ashby"} and br["completo"].all()

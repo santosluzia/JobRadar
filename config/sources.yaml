@@ -57,6 +57,17 @@ fontes:
     # Empresas: catálogo config/empresas.yaml (ats: lever, status: ativa).
     titulo_contem: *titulo_dados
     pausa_segundos: 0.5
+  ashby:
+    ativo: true                # Public Job Posting API (sem autenticação), por empresa
+    # Empresas: catálogo config/empresas.yaml (ats: ashby, status: ativa). Sem empresa ativa, não roda.
+    titulo_contem: *titulo_dados
+    pausa_segundos: 0.5
+  smartrecruiters:
+    ativo: true                # Posting API pública (vagas PUBLIC, sem autenticação), por empresa
+    # Empresas: catálogo config/empresas.yaml (ats: smartrecruiters, status: ativa). Uma requisição por
+    # página de 100 vagas + uma por vaga que passa no filtro de título (a descrição vem do detalhe).
+    titulo_contem: *titulo_dados
+    pausa_segundos: 0.5
 
 # Filtros usados para decidir o que é "vaga relevante" (e-mail e jobs.json).
 # Vagas fora do filtro continuam no histórico e entram nas análises de mercado.

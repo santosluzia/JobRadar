@@ -1,4 +1,5 @@
-"""Peças comuns aos coletores de ATS que listam o quadro INTEIRO de uma empresa (Greenhouse, Lever).
+"""Peças comuns aos coletores de ATS que listam o quadro INTEIRO de uma empresa (Greenhouse, Lever,
+Ashby e SmartRecruiters).
 
 Como a resposta é o quadro inteiro, a ausência de uma vaga é evidência de que ela saiu do ar (diferente
 da Gupy e da Adzuna, que são buscas). Cada quadro lido por completo vai para `CollectResult.quadros` com

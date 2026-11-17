@@ -13,7 +13,7 @@ from .text import normalizar, sha1, url_canonica
 
 # Ordem de preferência quando a mesma vaga aparece em mais de uma fonte:
 # link direto do ATS > agregador.
-PREFERENCIA_FONTE = {"gupy": 0, "greenhouse": 1, "lever": 2, "adzuna": 9}
+PREFERENCIA_FONTE = {"gupy": 0, "greenhouse": 1, "lever": 2, "ashby": 3, "smartrecruiters": 4, "adzuna": 9}
 
 RUIDO_TITULO = re.compile(r"\b(vaga|afirmativa|para|pessoas?|mulheres|pcd|remoto|hibrido|presencial)\b|[-–|/()]")
 

@@ -43,7 +43,7 @@ def test_url_da_api_no_catalogo_e_a_mesma_dos_coletores():
 @pytest.mark.parametrize("empresas", [
     [_empresa(), _empresa(board="outro")],                       # id repetido
     [_empresa(), _empresa(id="acme2")],                          # mesmo quadro duas vezes
-    [_empresa(ats="ashby")],                                     # ativa sem coletor
+    [_empresa(ats="gupy")],                                      # ativa sem coletor
     [_empresa(board=None)],                                      # ativa sem quadro
     [_empresa(verificada_em=None)],                              # ativa sem verificação
     [_empresa(pais="br")],                                       # país fora do ISO alfa-2
@@ -58,10 +58,10 @@ def test_catalogo_invalido_e_recusado(empresas):
 
 def test_candidata_de_ats_sem_coletor_e_aceita_mas_nao_e_coletada():
     cat = carregar_catalogo({"empresas": [
-        _empresa(), _empresa(id="beta", ats="ashby", board="beta", status="candidata", verificada_em=None,
+        _empresa(), _empresa(id="beta", ats="workday", board="beta", status="candidata", verificada_em=None,
                              origem="descoberta"),
         _empresa(id="gama", board="gama", status="pausada")]})
-    assert cat.quadros_ativos("greenhouse") == ["acme"] and cat.quadros_ativos("ashby") == []
+    assert cat.quadros_ativos("greenhouse") == ["acme"] and cat.quadros_ativos("workday") == []
 
 
 def test_lista_antiga_em_sources_yaml_soma_ao_catalogo_sem_repetir(tmp_path):

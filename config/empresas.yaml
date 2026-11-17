@@ -8,15 +8,16 @@
 #                   industria | saude | educacao | energia | logistica | imobiliario | jogos | midia | governo | outro
 # site              site institucional (https). Vazio = ainda não conferido
 # pagina_carreiras  página de carreiras da própria empresa (https). Vazio = ainda não conferida
-# ats               greenhouse | lever (com coletor) · ashby | smartrecruiters | gupy | workday | outro (sem coletor)
-# board             token (Greenhouse) ou slug (Lever) do quadro público
+# ats               greenhouse | lever | ashby | smartrecruiters (com coletor) · gupy | workday | outro (sem coletor)
+# board             token (Greenhouse), slug (Lever), nome do quadro (Ashby) ou companyIdentifier (SmartRecruiters)
 # status            candidata (aguarda curadoria) | ativa (coletada) | pausada | descartada
 # verificada_em     última conferência humana do quadro (obrigatória para ativa)
 # origem            manual | descoberta
 #
 # A URL da API e a página do quadro no ATS são derivadas de ats + board (não repita aqui).
 # A última coleta bem-sucedida é medida a cada execução (meta/board_runs): `jobradar empresas listar`.
-# Para incluir uma empresa, confirme o quadro em boards.greenhouse.io/<token> ou jobs.lever.co/<slug>
+# Para incluir uma empresa, confirme o quadro em boards.greenhouse.io/<token>, jobs.lever.co/<slug>,
+# jobs.ashbyhq.com/<quadro> ou api.smartrecruiters.com/v1/companies/<id>/postings
 # e anote a data em verificada_em (docs/operations.md, "Incluir uma empresa").
 
 versao: 1
