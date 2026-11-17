@@ -206,3 +206,20 @@ def test_vaga_que_vira_republicacao_recalcula_o_mes_dela_na_gold(settings, fake)
     gold = lake.read("gold/skill_monthly")
     total = gold[(gold["skill_id"] == "__total__") & (gold["familia"] == "analise_dados")]["total_vagas"].sum()
     assert total == 1
+
+
+def _adzuna_em(id_, estado, descricao, titulo="Oracle DBA - Remote, Latin America"):
+    return {**_adzuna(id_, empresa="Bluelight", descricao=descricao), "title": titulo,
+            "location": {"display_name": f"{estado}, Brasil", "area": ["Brasil", estado]}}
+
+
+def test_vaga_remota_repetida_por_estado_vira_uma_so(settings, fake):
+    remoto, presencial = "Trabalho 100% remoto. Requisitos: Oracle.", "Trabalho presencial. Requisitos: Oracle."
+    fake.adzuna = [_adzuna_em("rj", "Rio de Janeiro", remoto), _adzuna_em("pe", "Pernambuco", remoto),
+                   _adzuna_em("p1", "Bahia", presencial, "Oracle DBA"), _adzuna_em("p2", "Paraná", presencial, "Oracle DBA")]
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    jobs = Lake(settings.lake).read("silver/jobs").set_index("source_job_id")
+    assert jobs.loc["rj", "uf"] != jobs.loc["pe", "uf"]
+    assert jobs.loc["rj", "canonical_job_id"] == jobs.loc["pe", "canonical_job_id"]   # remota: UF não conta
+    assert jobs.loc["p1", "is_canonica"] and jobs.loc["p2", "is_canonica"]           # presencial: UF conta
+    assert next(f for f in rep.fontes if f.source == "adzuna").novas == 3   # 2 presenciais + 1 remota

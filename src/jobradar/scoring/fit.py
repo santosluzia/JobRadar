@@ -5,11 +5,10 @@ evidências registradas no perfil. Cada ponto vem acompanhado do critério que o
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..transformations.normalize import TITULO_GENERICO, titulo_sem_genero
+from ..transformations.normalize import titulo_conta_por_competencias
 from ..transformations.text import normalizar
 from .profile import Profile
 
@@ -111,7 +110,7 @@ def _dados_pedidos(job: dict[str, Any], skills: list[dict[str, str]], cfg: dict[
     quando chegam a `familia_por_competencias.min_competencias`. Fora disso, lista vazia."""
     regra = cfg.get("familia_por_competencias") or {}
     alvo = set(regra.get("competencias") or [])
-    if not alvo or not re.search(TITULO_GENERICO, titulo_sem_genero(job.get("titulo"))):
+    if not alvo or not titulo_conta_por_competencias(job.get("titulo")):
         return []
     pedidas = sorted({s["skill_id"] for s in skills} & alvo)
     return pedidas if len(pedidas) >= int(regra.get("min_competencias", 3)) else []

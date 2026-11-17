@@ -81,3 +81,12 @@ def test_familia_desenvolvimento_inclui_plsql_e_sql_mas_nao_oracle_erp():
         assert n.familia(titulo, set())[0] == dev, titulo
     assert n.familia("Analista Oracle EBS Financeiro", set())[0] == Familia.outra
     assert n.familia("Desenvolvedor Java", set())[0] == Familia.outra
+
+
+def test_oracle_de_erp_e_middleware_nao_e_vaga_de_dados():
+    assert n.familia("Desenvolvedor(a) Oracle BPM - Recrutamento Aberto", set())[0] == Familia.outra
+    assert n.familia("Desenvolvedor Oracle SOA Suite", set())[0] == Familia.outra
+    assert not n.titulo_conta_por_competencias("Desenvolvedor(a) Oracle BPM")
+    assert not n.titulo_conta_por_competencias("Oracle Technical Consultant ( OIC / OCI Cloud)")
+    assert n.titulo_conta_por_competencias("Analista de Sistemas Pleno")
+    assert n.familia("Desenvolvedor Oracle PL/SQL", set())[0] == Familia.desenvolvimento_dados
