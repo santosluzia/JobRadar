@@ -110,3 +110,76 @@ def test_quadro_com_erro_vazio_ou_truncado_nao_serve_de_evidencia(resposta):
     g = GreenhouseCollector({"empresas": ["x"]}, client=_cliente([resposta]))
     g.pause = 0
     assert g.collect([]).quadros == {}
+
+
+# ---------------------------------------------------------------- Retry-After, jitter e teto de espera
+def test_retry_after_em_segundos_em_data_http_e_invalido():
+    from datetime import datetime, timezone
+
+    from jobradar.collectors.base import retry_after
+    agora = datetime(2026, 11, 17, 12, 0, 0, tzinfo=timezone.utc)
+    assert retry_after("7", 2.0, agora) == 7.0
+    assert retry_after("Tue, 17 Nov 2026 12:00:30 GMT", 2.0, agora) == 30.0
+    assert retry_after("Tue, 17 Nov 2026 11:59:00 GMT", 2.0, agora) == 0.0   # data no passado: não espera
+    assert retry_after("amanhã", 2.0, agora) == 2.0 and retry_after(None, 2.0, agora) == 2.0
+
+
+def _esperas(monkeypatch):
+    import jobradar.collectors.base as base
+    esperas: list[float] = []
+    monkeypatch.setattr(base.time, "sleep", esperas.append)
+    return esperas
+
+
+def test_backoff_tem_jitter_e_respeita_retry_after(monkeypatch):
+    esperas = _esperas(monkeypatch)
+    c = GupyCollector({"urls": ["https://a.gupy.io"]},
+                      client=_cliente([(503, {}), (200, {"data": [], "pagination": {"total": 0}})]))
+    c._get("https://a.gupy.io", {}, CollectResult("gupy"))
+    assert 2.0 <= esperas[0] <= 2.5          # 2^1 com até +25% de jitter
+
+    def h(req, fila=[httpx.Response(429, headers={"Retry-After": "5"}), httpx.Response(200, json={})]):
+        return fila.pop(0)
+    c = GupyCollector({}, client=httpx.Client(transport=httpx.MockTransport(h)))
+    esperas.clear()
+    c._get("https://a.gupy.io", {}, CollectResult("gupy"))
+    assert esperas == [5.0]
+
+
+def test_retry_after_acima_do_teto_desiste_sem_esperar(monkeypatch):
+    esperas = _esperas(monkeypatch)
+    c = GupyCollector({}, client=httpx.Client(transport=httpx.MockTransport(
+        lambda req: httpx.Response(429, headers={"Retry-After": "3600"}))))
+    r = CollectResult("gupy")
+    with pytest.raises(SourceError, match="Retry-After"):
+        c._get("https://a.gupy.io", {}, r)
+    assert r.requests == 1 and esperas == []
+
+
+# ---------------------------------------------------------------- métricas por quadro (empresa)
+def test_metricas_por_quadro_e_falha_de_um_quadro_nao_derruba_os_outros():
+    def h(req):
+        token = req.url.path.split("/")[3]   # /v1/boards/<token>/jobs
+        if token == "fora":
+            return httpx.Response(404)
+        if token == "mudou":
+            return httpx.Response(200, json={"vagas": []})            # schema mudou: sem "jobs"
+        return httpx.Response(200, json={"jobs": [{"id": 1, "title": "Data Engineer"},
+                                                  {"id": 2, "title": "Vendas"}], "meta": {"total": 2}})
+    g = GreenhouseCollector({"empresas": ["ok", "fora", "mudou"], "titulo_contem": ["data"]},
+                            client=httpx.Client(transport=httpx.MockTransport(h)))
+    g.pause = 0
+    r = g.collect([])
+    assert [x["id"] for x in r.records] == [1] and r.quadros == {"ok": ["1", "2"]}
+    ok, fora, mudou = r.por_quadro["ok"], r.por_quadro["fora"], r.por_quadro["mudou"]
+    assert ok["ok"] and ok["completo"] and (ok["vagas_listadas"], ok["vagas_mantidas"], ok["requisicoes"]) == (2, 1, 1)
+    assert not fora["ok"] and "404" in fora["erro"] and fora["requisicoes"] == 1
+    assert not mudou["ok"] and "formato mudou" in mudou["erro"]
+    assert len(r.errors) == 2 and not r.ok
+
+
+def test_lever_com_resposta_fora_do_formato_registra_erro_do_quadro():
+    v = LeverCollector({"empresas": ["y"]}, client=_cliente([(200, {"erro": "x"})]))
+    v.pause = 0
+    r = v.collect([])
+    assert r.records == [] and not r.por_quadro["y"]["ok"] and "formato mudou" in r.errors[0]

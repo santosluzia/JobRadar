@@ -56,7 +56,7 @@ def test_cli_sem_pontuacao_descarta_o_perfil_da_memoria(settings, fake, monkeypa
     cli.cmd_run(args, settings)
     assert vistos["perfil"] == {} and settings.profile_path is None
     validacoes = Lake(settings.lake).read("meta/validacoes")
-    assert set(validacoes["artefato"]) == {"taxonomia"}         # público só valida o que é público
+    assert set(validacoes["artefato"]) == {"taxonomia", "catalogo_empresas"}   # público só valida o que é público
     assert Lake(settings.lake).read("private/validacoes").empty
 
 
@@ -64,9 +64,9 @@ def test_cli_sem_pontuacao_descarta_o_perfil_da_memoria(settings, fake, monkeypa
 def test_validacoes_de_configuracao_vao_para_tabelas_separadas(settings):
     lake = Lake(settings.lake)
     r = validar_configuracoes(settings, lake, "r1", incluir_privadas=True, agora=AGORA)
-    assert {x["artefato"] for x in r} == {"taxonomia", "perfil", "radar_config"}
+    assert {x["artefato"] for x in r} == {"taxonomia", "catalogo_empresas", "perfil", "radar_config"}
     assert all(x["ok"] for x in r)
-    assert set(lake.read("meta/validacoes")["artefato"]) == {"taxonomia"}
+    assert set(lake.read("meta/validacoes")["artefato"]) == {"taxonomia", "catalogo_empresas"}
     assert set(lake.read("private/validacoes")["artefato"]) == {"perfil", "radar_config"}
 
 
@@ -293,3 +293,13 @@ def test_actions_fixadas_por_sha():
         for linha in wf.read_text(encoding="utf-8").splitlines():
             if "uses:" in linha:
                 assert re.search(r"@[0-9a-f]{40}\s+#\s*v\d", linha), f"{wf.name}: {linha.strip()}"
+
+
+def test_catalogo_de_empresas_invalido_fica_registrado_em_meta_validacoes(settings):
+    settings.empresas = {"empresas": [{"id": "x", "nome": "X", "pais": "br", "segmento": "banco",
+                                       "ats": "greenhouse", "board": "x", "status": "ativa"}]}
+    lake = Lake(settings.lake)
+    r = validar_configuracoes(settings, lake, "r3", incluir_privadas=False, agora=AGORA)
+    cat = next(x for x in r if x["artefato"] == "catalogo_empresas")
+    assert cat["ok"] is False and cat["erros"] >= 1
+    assert lake.read("meta/validacoes").set_index("artefato").loc["catalogo_empresas", "ok"] == False  # noqa: E712

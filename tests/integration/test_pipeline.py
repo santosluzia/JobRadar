@@ -208,6 +208,20 @@ def test_vaga_que_vira_republicacao_recalcula_o_mes_dela_na_gold(settings, fake)
     assert total == 1
 
 
+def test_metricas_por_quadro_vao_para_meta_board_runs_e_bronze(settings, fake):
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    fake.falhar.add("greenhouse")
+    pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA + timedelta(hours=6))
+    lake = Lake(settings.lake)
+    br = lake.read("meta/board_runs").sort_values("finalizada_em")
+    assert list(br["quadro"]) == ["acme", "acme"] and list(br["source"]) == ["greenhouse", "greenhouse"]
+    r1, r2 = br.iloc[0], br.iloc[1]
+    assert r1["ok"] and r1["completo"] and (r1["vagas_listadas"], r1["vagas_mantidas"]) == (1, 1)
+    assert not r2["ok"] and "503" in r2["erro"] and r2["retentativas"] == 2
+    bronze = next(settings.lake.glob("bronze/source=greenhouse/dt=*/run=r1.json.gz"))
+    assert lake.read_bronze(bronze)["por_quadro"]["acme"]["vagas_listadas"] == 1
+
+
 def _adzuna_em(id_, estado, descricao, titulo="Oracle DBA - Remote, Latin America"):
     return {**_adzuna(id_, empresa="Bluelight", descricao=descricao), "title": titulo,
             "location": {"display_name": f"{estado}, Brasil", "area": ["Brasil", estado]}}

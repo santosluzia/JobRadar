@@ -93,6 +93,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     skills_lote: dict[str, list[SkillMatch]] = {}
     problemas: list[dict] = []
     quadros: dict[str, dict[str, list[str]]] = {}   # fonte → quadro lido por inteiro → ids listados
+    quadros_run: list[dict] = []                     # métricas por quadro (empresa) → meta/board_runs
     for coletor in collectors:
         ts = time.monotonic()
         try:
@@ -102,12 +103,18 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
             res = CollectResult(coletor.name)
             res.errors.append(f"{type(e).__name__}: {e}")
         res.errors = [mascarar(x) for x in res.errors]   # erro nunca leva chave/senha (bronze, meta, log, resumo)
+        for m_q in res.por_quadro.values():
+            if m_q.get("erro"):
+                m_q["erro"] = mascarar(m_q["erro"])
         lake.write_bronze(coletor.name, dia, run_id, {
             "run_id": run_id, "source": coletor.name, "ingested_at": agora.isoformat(),
             "params": res.params, "requests": res.requests, "retries": res.retries,
             "errors": res.errors, "record_count": len(res.records), "records": res.records,
-            "quadros": res.quadros,
+            "quadros": res.quadros, "por_quadro": res.por_quadro,
         })
+        quadros_run += [{"run_id": run_id, "source": coletor.name, "quadro": q, **{k: m.get(k) for k in (
+            "ok", "completo", "vagas_listadas", "vagas_mantidas", "requisicoes", "retentativas", "duracao_s")},
+            "erro": m.get("erro")} for q, m in res.por_quadro.items()]
         if res.quadros:
             quadros[coletor.name] = res.quadros
         m = SourceMetrics(coletor.name, ok=res.ok, coletados=len(res.records),
@@ -134,7 +141,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     fontes_ok = [f for f in report.fontes if f.ok]
     if not fontes_ok:
         report.status = "falha"
-        return _finalizar(lake, report, problemas, t0)
+        return _finalizar(lake, report, problemas, t0, quadros_run)
     report.status = "sucesso" if len(fontes_ok) == len(report.fontes) else "parcial"
 
     # ---------------- silver: merge incremental ----------------
@@ -241,7 +248,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     report.vagas_pontuadas = _scores(lake, s, jobs, efetivas_, ids_lote, agora) if pontuar else 0
 
     report.bronze_particoes_removidas = lake.prune_bronze(dia, int(s.retencao.get("bronze_dias", 90)))
-    return _finalizar(lake, report, problemas, t0)
+    return _finalizar(lake, report, problemas, t0, quadros_run)
 
 
 def reextrair(s: Settings, agora: datetime | None = None, run_id: str | None = None,
@@ -502,10 +509,13 @@ def _scores(lake: Lake, s: Settings, jobs: pd.DataFrame, skills: pd.DataFrame,
     return int(novo["job_id"].nunique())
 
 
-def _finalizar(lake: Lake, report: RunReport, problemas: list[dict], t0: float) -> RunReport:
+def _finalizar(lake: Lake, report: RunReport, problemas: list[dict], t0: float,
+               quadros_run: list[dict] | None = None) -> RunReport:
     report.finalizada_em = utcnow()
     report.duracao_s = round(time.monotonic() - t0, 2)
     lake.append("silver/quality_issues", pd.DataFrame(problemas))
+    lake.append("meta/board_runs", pd.DataFrame([{**q, "finalizada_em": report.finalizada_em}
+                                                 for q in quadros_run or []]))
     lake.append("meta/source_runs", pd.DataFrame([{
         "run_id": report.run_id, "source": f.source, "ok": f.ok, "coletados": f.coletados,
         "validos": f.validos, "invalidos": f.invalidos, "duplicatas_fonte": f.duplicatas_fonte,

@@ -4,6 +4,7 @@
     jobradar publish --out DIR       gera, VALIDA e grava os JSON públicos v1
     jobradar notify [--dry-run]      e-mail com vagas ainda não notificadas
     jobradar status                  últimas execuções e saúde das fontes
+    jobradar empresas listar         catálogo de empresas (config/empresas.yaml) e última coleta de cada uma
     jobradar recomendacoes           prioridades de estudo (privado)
     jobradar candidatura ID STATUS   registra status de candidatura (privado)
     jobradar estudo SKILL STATUS     registra progresso de estudo (privado)
@@ -226,6 +227,29 @@ def cmd_status(a, s) -> int:
           if not snap.runs.empty else "nenhuma execução registrada")
     for f in market.fontes(snap):
         print(f)
+    return 0
+
+
+def cmd_empresas(a, s) -> int:
+    """Catálogo + situação medida (meta/board_runs). Só dados públicos e operacionais."""
+    from .empresas import carregar_catalogo, situacao
+    tab = situacao(carregar_catalogo(s.empresas), Lake(s.lake))
+    if a.status:
+        tab = tab[tab["status"] == a.status]
+    if a.ats:
+        tab = tab[tab["ats"] == a.ats]
+    if tab.empty:
+        print("nenhuma empresa no catálogo com esse filtro")
+        return 0
+    import pandas as pd
+    for col in ("ultima_coleta_ok", "ultima_tentativa"):
+        tab[col] = pd.to_datetime(tab[col], utc=True).dt.strftime("%Y-%m-%d %H:%M")
+    cols = ["id", "nome", "pais", "segmento", "ats", "status", "verificada_em", "ultima_coleta_ok",
+            "falhas_seguidas", "vagas_listadas", "vagas_mantidas"]
+    print(tab[cols].astype(object).where(tab[cols].notna(), "—").to_string(index=False))
+    ativas = tab[tab["status"] == "ativa"]
+    print(f"\n{len(tab)} empresas · {len(ativas)} ativas · "
+          f"{int((ativas['falhas_seguidas'] > 0).sum())} ativas com falha na última tentativa")
     return 0
 
 
@@ -608,6 +632,11 @@ def main(argv: list[str] | None = None) -> None:
     me.add_argument("--forcar", action="store_true"); me.add_argument("--turno"); me.add_argument("--run-id")
     me.set_defaults(f=cmd_mensal)
     st = sub.add_parser("status"); st.add_argument("-n", type=int, default=10); st.set_defaults(f=cmd_status)
+    em = sub.add_parser("empresas", help="catálogo de empresas monitoradas e situação da coleta")
+    em.add_argument("acao", choices=["listar"])
+    em.add_argument("--status", choices=["candidata", "ativa", "pausada", "descartada"])
+    em.add_argument("--ats")
+    em.set_defaults(f=cmd_empresas)
     rc = sub.add_parser("recomendacoes"); rc.add_argument("-n", type=int, default=15)
     rc.add_argument("--objetivo", help="id do objetivo do perfil (padrão: todos, separados)")
     rc.set_defaults(f=cmd_recomendacoes)

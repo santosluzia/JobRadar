@@ -77,6 +77,14 @@ TABLES: dict[str, pa.Schema] = {
         ("novas", pa.int64()), ("requisicoes", pa.int64()), ("retentativas", pa.int64()),
         ("erros", S), ("finalizada_em", TS),
     ]),
+    # Uma linha por quadro de ATS (empresa) consultado na execução: base da "última coleta bem-sucedida"
+    # do catálogo de empresas (docs/adr/0009). `completo` = quadro lido por inteiro (serve de evidência
+    # para encerrar vagas); `vagas_mantidas` = passaram no filtro de título e foram para a bronze.
+    "meta/board_runs": pa.schema([
+        ("run_id", S), ("source", S), ("quadro", S), ("ok", pa.bool_()), ("completo", pa.bool_()),
+        ("vagas_listadas", pa.int64()), ("vagas_mantidas", pa.int64()), ("requisicoes", pa.int64()),
+        ("retentativas", pa.int64()), ("duracao_s", pa.float64()), ("erro", S), ("finalizada_em", TS),
+    ]),
     # Etapa 8: resultado das validações por execução. Público (contrato, taxonomia) e privado (perfil,
     # radar.yaml) em tabelas separadas: os dois workflows nunca gravam o mesmo arquivo (sem conflito de push).
     "meta/validacoes": pa.schema([

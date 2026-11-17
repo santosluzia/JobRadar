@@ -46,18 +46,15 @@ fontes:
     pausa_segundos: 1.0
   greenhouse:
     ativo: true                # API pública documentada, por empresa
-    # Tokens conferidos em 2026-10-17 (boards-api.greenhouse.io/v1/boards/<token>): empresas com
-    # vagas no Brasil e ao menos uma vaga de dados na sondagem. Para incluir outra, confirme o token
-    # em boards.greenhouse.io/<token>.
-    empresas: [quintoandar, ebanx, wildlifestudios, vtex, c6bank, stone, rdstation, jusbrasil,
-               xpinc, btgpactual, inter, agibank]
+    # As empresas vêm do catálogo config/empresas.yaml (ats: greenhouse, status: ativa).
+    # `empresas: [...]` aqui ainda é aceito (somado ao catálogo), mas prefira o catálogo.
     titulo_contem: &titulo_dados [dados, data, analytics, bi, business intelligence, etl, elt,
                                   databricks, spark, dbt, sql, dba, dbre, database, oracle, postgres,
                                   postgresql, mysql]
     pausa_segundos: 0.5
   lever:
     ativo: true                # API pública documentada, por empresa
-    empresas: [ciandt]         # confirme em jobs.lever.co/<empresa>
+    # Empresas: catálogo config/empresas.yaml (ats: lever, status: ativa).
     titulo_contem: *titulo_dados
     pausa_segundos: 0.5
 

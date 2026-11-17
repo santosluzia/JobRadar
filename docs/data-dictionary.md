@@ -126,10 +126,24 @@ de cada vaga (`scoring.melhor_por_vaga`); a análise por objetivo filtra `objeti
 - **runs:** `run_id`, `iniciada_em`, `finalizada_em`, `status` (sucesso · parcial · falha), `duracao_s`, `metricas` (json completo do relatório).
 - **source_runs:** `run_id`, `source`, `ok`, `coletados`, `validos`, `invalidos`, `duplicatas_fonte`, `novas`, `requisicoes`, `retentativas`, `erros`, `finalizada_em`.
 
+## meta/board_runs — uma linha por quadro de ATS (empresa) e execução
+
+`run_id`, `source` (`greenhouse` · `lever`), `quadro` (token/slug do catálogo), `ok`, `completo` (lido por
+inteiro: serve de evidência para encerrar vagas), `vagas_listadas` (todas as do quadro), `vagas_mantidas`
+(passaram no filtro de título e foram para a bronze), `requisicoes`, `retentativas`, `duracao_s`, `erro`
+(mascarado), `finalizada_em`. Cruzada com `config/empresas.yaml` em `jobradar empresas listar` (ADR 0009).
+Na bronze, o mesmo conteúdo fica em `por_quadro`.
+
+## config/empresas.yaml — catálogo de empresas (versionado, público)
+
+Uma entrada por empresa: `id`, `nome`, `pais` (ISO alfa-2), `segmento`, `site`, `pagina_carreiras`, `ats`,
+`board`, `status` (`candidata` · `ativa` · `pausada` · `descartada`), `verificada_em`, `origem`
+(`manual` · `descoberta`), `observacoes`. Só `ativa` é coletada. Regras no ADR 0009.
+
 ## meta/validacoes e private/validacoes
 
 Uma linha por artefato validado em cada execução (docs/rastreabilidade.md): `run_id`, `artefato`
-(`contrato_publico` · `taxonomia` em meta; `perfil` · `radar_config` em private), `versao`, `ok`, `erros`
+(`contrato_publico` · `taxonomia` · `catalogo_empresas` em meta; `perfil` · `radar_config` em private), `versao`, `ok`, `erros`
 (quantidade), `detalhe` (curto e mascarado; para o perfil, só o campo, nunca o valor), `em`.
 
 ## meta/notifications

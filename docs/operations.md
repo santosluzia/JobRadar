@@ -38,6 +38,16 @@ O `GITHUB_TOKEN` é automático. O workflow pede só `contents: write`, que vale
 3. Verifique se a branch `public-data` foi criada e se `v1/manifest.json` abre no navegador.
 4. Rode de novo com e-mail. Depois configure o disparo externo (seção 5.1); a partir daí o agendamento assume.
 
+## 4.1 Incluir uma empresa (catálogo)
+
+1. Confirme o quadro público: `boards.greenhouse.io/<token>` (Greenhouse) ou `jobs.lever.co/<slug>` (Lever).
+   O quadro precisa listar vagas, e de preferência ao menos uma de dados.
+2. Acrescente a entrada em `config/empresas.yaml` com `status: ativa` e `verificada_em` = data da conferência.
+   Deixe `site` e `pagina_carreiras` vazios se não tiver conferido.
+3. `pytest -q tests/unit/test_empresas.py` valida o catálogo. Depois do próximo turno, confira com
+   `jobradar empresas listar` (última coleta, vagas listadas e mantidas no filtro de título).
+4. Empresa que deixou de usar o ATS: `status: pausada` (mantém o histórico) em vez de apagar a entrada.
+
 ## 5. Agendamento e fuso
 
 - Quatro execuções por dia, uma a cada 6 horas. Com a tarefa no fuso de São Paulo (UTC−3; o Brasil não tem horário de verão desde 2019): **00:00, 06:00, 12:00 e 18:00**.
