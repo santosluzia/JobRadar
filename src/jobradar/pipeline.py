@@ -25,7 +25,7 @@ from .scoring import Profile, calcular
 from .settings import Settings
 from .storage import Lake, utcnow
 from .transformations import normalize
-from .transformations.silver import PREFERENCIA_FONTE, canonizar
+from .transformations.silver import PREFERENCIA_FONTE, canonizar, chave_alternativa
 from .transformations.skills import VERSAO_LEGADA, SkillMatch, Taxonomy, efetivas, so_tecnicas, versoes
 from .transformations.skills import linhas as linhas_skills
 from .transformations.text import normalizar
@@ -370,6 +370,7 @@ def _canonicas(jobs: pd.DataFrame) -> pd.DataFrame:
 
     Duas vagas são a mesma quando batem em QUALQUER uma das chaves (e o grupo é transitivo):
     - chave alternativa: empresa + título sem ruído + UF, entre fontes;
+    - remota: empresa + título sem ruído, só entre vagas remotas (o agregador repete o anúncio por UF);
     - republicação: mesma fonte + mesma empresa (ou ambas sem empresa) + mesmo título + mesma UF +
       mesma descrição. Pega o agregador que republica o anúncio com outro id e outra data, inclusive
       sem empresa (aí não há chave alternativa). Empresas diferentes com o mesmo texto não se juntam.
@@ -381,12 +382,16 @@ def _canonicas(jobs: pd.DataFrame) -> pd.DataFrame:
     republicacao = (jobs["source"] + "|" + jobs["empresa"].fillna("").map(normalizar) + "|"
                     + jobs["titulo_norm"].fillna("") + "|" + jobs["uf"].fillna("") + "|"
                     + jobs["descricao_hash"]).where(jobs["descricao_hash"].notna())
+    # Vaga remota não tem UF: o agregador repete o mesmo anúncio uma vez por estado.
+    remota = pd.Series([chave_alternativa(e, t, "remoto") if m == "remoto" and isinstance(e, str) else None
+                        for e, t, m in zip(jobs["empresa"], jobs["titulo"].fillna(""), jobs["modalidade"])],
+                       index=jobs.index, dtype="object")
     # Componentes conexos: cada vaga aponta para a posição da primeira (na ordem de preferência) do
     # grupo; repete até estabilizar, porque A~B por uma chave e B~C pela outra também juntam A e C.
     grupo = pd.Series(range(len(jobs)), dtype="int64")
     while True:
         novo = grupo
-        for chave in (jobs["chave_alternativa"], republicacao):
+        for chave in (jobs["chave_alternativa"], republicacao, remota):
             novo = novo.groupby(chave).transform("min").fillna(novo).astype("int64")
         if novo.equals(grupo):
             break
