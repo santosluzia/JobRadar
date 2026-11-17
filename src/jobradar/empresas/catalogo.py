@@ -54,6 +54,9 @@ class Empresa(BaseModel):
     status: Status
     verificada_em: date | None = None                  # última vez que o quadro foi conferido por alguém
     origem: Literal["manual", "descoberta"] = "manual"
+    # Usa `nome` na coleta mesmo quando a API informa outro (ex.: quadro do Greenhouse publicado em nome de
+    # um parceiro). Padrão False: o nome continua vindo da fonte, como antes, e o histórico não muda.
+    nome_fixo: bool = False
     observacoes: str | None = None
 
     @field_validator("site", "pagina_carreiras")

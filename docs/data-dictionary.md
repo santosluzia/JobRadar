@@ -138,7 +138,18 @@ Na bronze, o mesmo conteúdo fica em `por_quadro`.
 
 Uma entrada por empresa: `id`, `nome`, `pais` (ISO alfa-2), `segmento`, `site`, `pagina_carreiras`, `ats`,
 `board`, `status` (`candidata` · `ativa` · `pausada` · `descartada`), `verificada_em`, `origem`
-(`manual` · `descoberta`), `observacoes`. Só `ativa` é coletada. Regras no ADR 0009.
+(`manual` · `descoberta`), `nome_fixo` (padrão `false`; `true` = a coleta usa `nome` no lugar do nome que a
+API informa, ADR 0012), `observacoes`. Só `ativa` é coletada. Regras no ADR 0009; fila de curadoria
+(`candidata`) no ADR 0012.
+
+## meta/empresas_verificacoes — uma linha por verificação de quadro na curadoria
+
+`em`, `empresa_id` (nulo se o quadro ainda não está no catálogo), `ats`, `board`, `ok`, `completo`,
+`vagas_listadas` (todas as do quadro), `vagas_dados` (passaram no filtro de título da coleta), `vagas_brasil`
+e `vagas_alvo` (entre as de dados; alvo = Brasil, Portugal e América Latina), `paises` (JSON
+`{país ISO: vagas de dados}`, `"?"` = não identificado), `nome_api` (Greenhouse e SmartRecruiters), `erro`,
+`requisicoes`, `duracao_s`. Gravada por `jobradar empresas detectar|verificar`; lida por `aprovar` e `listar`.
+Só dados públicos e operacionais (ADR 0012).
 
 ## meta/validacoes e private/validacoes
 

@@ -38,6 +38,7 @@ class LeverCollector(Collector):
     def collect(self, termos: list[str]) -> CollectResult:
         empresas = self.cfg.get("empresas") or []
         result = CollectResult(self.name, params={"empresas": empresas})
+        fixos = self.cfg.get("nomes_fixos") or {}
         todos = []
         for empresa in empresas:
             with medindo(result, empresa):
@@ -46,6 +47,8 @@ class LeverCollector(Collector):
                     raise SourceError("resposta não é uma lista de vagas (formato mudou?)")
                 for job in vagas:
                     job["_empresa"] = empresa
+                    if empresa in fixos:
+                        job["_empresa_fixa"] = fixos[empresa]
                     todos.append(job)
                 registrar_quadro(result, empresa, vagas)
             self._sleep()
@@ -60,7 +63,7 @@ class LeverCollector(Collector):
             source_job_id=r.get("id"),
             url=r.get("hostedUrl") or r.get("applyUrl") or "",
             title=r.get("text") or "",
-            company=r.get("_empresa"),
+            company=r.get("_empresa_fixa") or r.get("_empresa"),
             location_raw=cat.get("location"),
             modality_raw=self.MODALIDADE.get(r.get("workplaceType") or ""),
             published_at=datetime.fromtimestamp(criado / 1000, tz=timezone.utc) if criado else None,

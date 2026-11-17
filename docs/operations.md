@@ -40,14 +40,29 @@ O `GITHUB_TOKEN` é automático. O workflow pede só `contents: write`, que vale
 
 ## 4.1 Incluir uma empresa (catálogo)
 
-1. Confirme o quadro público: `boards.greenhouse.io/<token>` (Greenhouse), `jobs.lever.co/<slug>` (Lever),
-   `jobs.ashbyhq.com/<quadro>` (Ashby) ou `api.smartrecruiters.com/v1/companies/<id>/postings` (SmartRecruiters).
-   O quadro precisa listar vagas, e de preferência ao menos uma de dados.
-2. Acrescente a entrada em `config/empresas.yaml` com `status: ativa` e `verificada_em` = data da conferência.
-   Deixe `site` e `pagina_carreiras` vazios se não tiver conferido.
-3. `pytest -q tests/unit/test_empresas.py` valida o catálogo. Depois do próximo turno, confira com
-   `jobradar empresas listar` (última coleta, vagas listadas e mantidas no filtro de título).
-4. Empresa que deixou de usar o ATS: `status: pausada` (mantém o histórico) em vez de apagar a entrada.
+O caminho normal é a fila de curadoria (ADR 0012):
+
+1. **Detectar:** `jobradar empresas detectar <URL>`, com a página de carreiras da empresa ou o link de uma vaga.
+   O comando mostra o ATS, o quadro e a verificação: vagas no total, de dados, no Brasil e no alvo
+   (Brasil, Portugal e América Latina), países e o nome que a API informa.
+   - Se a página não puder ser lida (robots.txt, login, erro), cole o link de uma vaga aberta no navegador.
+2. **Pôr na fila:** repita com `--adicionar --nome "Nome" --pais BR --segmento tecnologia [--id id]`. A
+   empresa entra em `config/empresas.yaml` como `status: candidata`, que não é coletada.
+3. **Revisar:** abra o quadro no navegador e confira se ele é mesmo da empresa.
+   - Se a API informar outro nome (quadro publicado por um parceiro), acrescente `nome_fixo: true` na entrada.
+   - `jobradar empresas listar --status candidata` mostra a fila, e `jobradar empresas verificar [ID]`
+     confere de novo.
+4. **Aprovar:** `jobradar empresas aprovar <ID>`. Exige uma verificação de até 7 dias sem pendências e
+   grava `status: ativa` com `verificada_em`. `--forcar` aprova com pendências e registra isso em
+   `observacoes`.
+   - Para tirar da fila: `jobradar empresas descartar <ID> --motivo "…"`.
+5. **Levar para a main:** `pytest -q tests/unit/test_empresas.py` valida o catálogo. Leve a alteração por PR;
+   depois do próximo turno, confira com `jobradar empresas listar`.
+
+Também dá para editar o YAML à mão, como antes: entrada com `status: ativa` e `verificada_em` = data da
+conferência do quadro público (`boards.greenhouse.io/<token>`, `jobs.lever.co/<slug>`, `jobs.ashbyhq.com/<quadro>`
+ou `api.smartrecruiters.com/v1/companies/<id>/postings`). Empresa que deixou de usar o ATS: `status: pausada`
+(mantém o histórico) em vez de apagar a entrada.
 
 ## 5. Agendamento e fuso
 
