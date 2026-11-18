@@ -12,7 +12,7 @@
 # esforco:    estimativa de aprendizagem (baixo | medio | alto) — opinião configurável, não dado observado.
 # projeto:    se dá para demonstrar num projeto prático de portfólio.
 
-versao: "2.1.2"
+versao: "2.2.0"
 
 competencias:
   # ---------------------------------------------------------------- Linguagens
@@ -399,6 +399,12 @@ competencias:
     categoria: idioma
     tipo: idioma
     padroes: ["\\bingles\\b", "\\benglish\\b"]
+    projeto: false
+  - id: espanhol
+    nome: Espanhol
+    categoria: idioma
+    tipo: idioma
+    padroes: ["\\bespanhol\\b", "\\bspanish\\b", "\\bespanol\\b", "\\bcastellano\\b"]
     projeto: false
 
 # Trechos que indicam que o resto da seção é "desejável", não requisito.

@@ -90,6 +90,7 @@ Detalhes e decisões em [`docs/architecture.md`](docs/architecture.md). O modelo
 | Catálogo de empresas com situação da coleta por empresa (`jobradar empresas listar`) | ✅ [ADR 0009](docs/adr/0009-catalogo-de-empresas.md) |
 | Descoberta assistida do ATS e fila de curadoria (`jobradar empresas detectar/verificar/aprovar/descartar`) | ✅ [ADR 0012](docs/adr/0012-descoberta-e-curadoria-de-empresas.md) |
 | Nota de qualidade por fonte e alerta de mudança de formato das respostas (`jobradar qualidade`) | ✅ [ADR 0013](docs/adr/0013-qualidade-por-fonte-e-formato.md) |
+| Subfamília do cargo, títulos em espanhol, idioma da vaga e idiomas exigidos (`jobradar classificacao`) | ✅ [ADR 0014](docs/adr/0014-subfamilia-e-idiomas.md); ainda fora do contrato público |
 | Bronze / Silver / Gold incrementais em Parquet + DuckDB | ✅ |
 | Deduplicação por id, URL canônica, chave alternativa entre fontes e republicações | ✅ |
 | Histórico de observações e mudanças de requisitos | ✅ |
@@ -126,7 +127,7 @@ cp .env.example .env                                       # JOBRADAR_LAKE=../jo
 
 cp config/profile.example.yaml ../jobradar-data/private/profile.yaml   # preencha seu perfil
 
-pytest -q                                   # 360 testes, sem acesso à internet
+pytest -q                                   # 412 testes, sem acesso à internet
 jobradar run                                # coleta + bronze/silver/gold
 jobradar publish --out public_out           # gera e valida o contrato v1
 jobradar notify --dry-run                   # prévia do e-mail em jobradar-email.html

@@ -24,7 +24,7 @@ from .collectors.base import Collector, CollectResult
 from .scoring import Profile, calcular
 from .settings import Settings
 from .storage import Lake, utcnow
-from .transformations import geografia, normalize
+from .transformations import classificacao, geografia, normalize
 from .transformations.silver import PREFERENCIA_FONTE, canonizar, chave_alternativa
 from .transformations.skills import VERSAO_LEGADA, SkillMatch, Taxonomy, efetivas, so_tecnicas, versoes
 from .transformations.skills import linhas as linhas_skills
@@ -62,6 +62,7 @@ class RunReport:
     requisitos_alterados: int = 0
     encerradas_fora_do_quadro: int = 0   # saíram do quadro da empresa no ATS nesta execução
     chaves_geografia_alteradas: int = 0  # vagas do histórico com chave de dedup refeita pela geografia (ADR 0010)
+    vagas_classificadas: int = 0         # vagas do histórico com subfamília/idiomas (re)calculados (ADR 0014)
     formatos_alterados: list[str] = field(default_factory=list)   # fontes com mudança GRAVE de formato (ADR 0013)
     meses_recalculados: list[str] = field(default_factory=list)
     vagas_pontuadas: int = 0
@@ -180,6 +181,8 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     # Migração incremental: vagas gravadas com outra versão das regras de geografia (ou antes delas)
     # ganham país, região, cidade e a chave alternativa nova. Vagas do Brasil mantêm a mesma chave.
     jobs, report.chaves_geografia_alteradas = geografia.atualizar(jobs)
+    # Idem para subfamília e idiomas (ADR 0014): só as vagas gravadas com outra versão das regras.
+    jobs, report.vagas_classificadas = classificacao.atualizar(jobs, tax)
     report.encerradas_fora_do_quadro = _encerrar_fora_do_quadro(jobs, quadros, agora)
     jobs = _status(jobs, agora, s.retencao)
     jobs = _canonicas(jobs)
@@ -290,15 +293,17 @@ def reextrair(s: Settings, agora: datetime | None = None, run_id: str | None = N
     skills = pd.concat([skills[~skills["job_id"].isin(alvo["job_id"])], pd.DataFrame(novas, columns=skills.columns)],
                        ignore_index=True)
     jobs.loc[jobs["job_id"].isin(alvo["job_id"]), "taxonomia_versao"] = tax.versao
-    mudou_familia = 0
+    mudou_familia: set[str] = set()
     for i in jobs.index[jobs["job_id"].isin(familias)]:
         fam, origem = familias[jobs.at[i, "job_id"]]
         if jobs.at[i, "familia"] != fam:
-            mudou_familia += 1
+            mudou_familia.add(jobs.at[i, "job_id"])
             jobs.at[i, "familia"] = fam
             oc = json.loads(jobs.at[i, "origem_campos"] or "{}")
             oc["familia"] = origem
             jobs.at[i, "origem_campos"] = json.dumps(oc)
+    # A subfamília depende da família: refaz a das vagas que mudaram (e migra as que ainda não têm).
+    jobs, _ = classificacao.atualizar(jobs, tax, forcar_subfamilia=mudou_familia)
 
     lake.write("silver/jobs", jobs)
     lake.write("silver/job_skills", skills)
@@ -316,7 +321,7 @@ def reextrair(s: Settings, agora: datetime | None = None, run_id: str | None = N
     return {
         "taxonomia_versao": tax.versao, "run_id": run_id,
         "vagas_reextraidas": len(alvo), "vagas_sem_descricao_mantidas": int((~com_desc).sum()),
-        "familia_alterada": mudou_familia, "meses_recalculados": len(meses), "vagas_pontuadas": pontuadas,
+        "familia_alterada": len(mudou_familia), "meses_recalculados": len(meses), "vagas_pontuadas": pontuadas,
         "achados_por_metodo": so_tecnicas(skills[skills["job_id"].isin(alvo["job_id"])])["metodo"]
             .value_counts().to_dict(),
         "nao_tecnicas": int((skills["job_id"].isin(alvo["job_id"]) & (skills["tipo"] != "tecnica")).sum()),

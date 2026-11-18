@@ -326,3 +326,40 @@ def test_pipeline_assina_formato_e_aponta_mudanca_grave(settings, fake):
     assert rep.formatos_alterados == ["gupy"]
     ult = Lake(settings.lake).read(qf.TABELA).query("run_id == 'r2' and source == 'gupy'").iloc[0]
     assert ult["grave"] and "name" in ult["mudancas"]
+
+
+def test_pipeline_grava_subfamilia_e_idiomas_e_migra_o_historico(settings, fake):
+    import json
+
+    from jobradar.transformations.classificacao import CLASSIFICACAO_VERSAO
+    fake.gupy[1]["description"] += " Requisitos: inglês avançado para o time global."
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    lake = Lake(settings.lake)
+    jobs = lake.read("silver/jobs").set_index("source_job_id")
+    assert (jobs["classificacao_versao"] == CLASSIFICACAO_VERSAO).all() and jobs["subfamilia"].notna().all()
+    assert rep.vagas_classificadas == 0                      # tudo já nasceu na versão atual
+    sr = jobs.loc["102"]
+    assert sr["subfamilia"] == "engenharia_dados" and sr["idioma_vaga"] in ("pt", "indeterminado")
+    assert [e["nivel"] for e in json.loads(sr["idiomas_exigidos"]) if e["idioma"] == "en"] == ["avancado"]
+    assert {"subfamilia", "idioma_vaga"} <= set(json.loads(sr["origem_campos"]))
+
+    # histórico gravado antes da classificação: a próxima execução preenche, uma vez só
+    lake.write("silver/jobs", lake.read("silver/jobs").assign(subfamilia=None, classificacao_versao=None))
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA + timedelta(hours=6))
+    assert lake.read("silver/jobs")["subfamilia"].notna().all()
+    rep3 = pipeline.run(settings, fake.collectors(settings), run_id="r3", agora=AGORA + timedelta(hours=12))
+    assert rep3.vagas_classificadas == 0
+
+
+def test_reextrair_refaz_subfamilia_quando_a_familia_muda(settings, fake):
+    pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    lake = Lake(settings.lake)
+    jobs = lake.read("silver/jobs")
+    # simula uma vaga gravada com outra família (régua antiga) e a subfamília dessa régua
+    i = jobs.index[jobs["familia"] == "engenharia_dados"][0]
+    jobs.loc[i, ["familia", "subfamilia"]] = ["outra", "fora_de_dados"]
+    lake.write("silver/jobs", jobs.assign(taxonomia_versao="0.0.1"))
+    r = pipeline.reextrair(settings, agora=AGORA, pontuar=False)
+    assert r["familia_alterada"] >= 1
+    depois = lake.read("silver/jobs").loc[i]
+    assert depois["familia"] == "engenharia_dados" and depois["subfamilia"] != "fora_de_dados"

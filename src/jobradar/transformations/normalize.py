@@ -11,8 +11,10 @@ from ..models import Familia, Modalidade, Senioridade
 from .text import normalizar
 
 SENIORIDADE = [
-    (Senioridade.estagio, r"\b(estagio|estagiari[oa]|internship|intern|aprendiz)\b"),
-    (Senioridade.lideranca, r"\b(lead|lider|lideranca|head|gerente|manager|coordenador[a]?|principal|staff|tech lead)\b"),
+    (Senioridade.estagio, r"\b(estagio|estagiari[oa]|internship|intern|aprendiz|practicante|pasante|becari[oa])\b"),
+    (Senioridade.lideranca, r"\b(lead|lider|lideranca|head|gerente|manager|coordenador[a]?|principal|staff|tech lead|jefe)\b"),
+    # Espanhol (2.2.0): "Semi Senior"/"SSr" é o nível intermediário na América Latina; vem antes de "senior".
+    (Senioridade.pleno, r"\bsemi[ -]?senior\b|\bssr\b"),
     # "master" = nível acima de sênior em consultorias (ex.: CI&T), exceto "master data management".
     (Senioridade.senior, r"\b(senior|sr|especialista|specialist|iii)\b|\bmaster\b(?!\s+data\s+management)"),
     (Senioridade.pleno, r"\b(pleno|pl|mid|mid-level|ii)\b"),
@@ -30,7 +32,8 @@ MODALIDADE_TEXTO = [
 
 # Marcadores de gênero do título ("Engenheiro(a)", "Desenvolvedor/a") saem antes das regras abaixo.
 GENERO = r"\((a|o|as|os|e|es|o/a|a/o)\)|/(a|o)\b"
-_BANCO = r"banco[s]? (de )?dados"
+_BANCO = r"(?:banco[s]? (de )?dados|bases? de datos)"
+_DEV = r"(?:desenvolvedor|desarrollador)[a]?"   # pt e es
 _FERRAMENTA_BI = r"power ?bi|tableau|qlik( sense)?|looker"
 _CARGO_BI = r"(analista|especialista|consultor[a]?|engenheir[oa]|analyst|specialist|consultant|engineer)"
 # Produtos Oracle que não são o banco: ERP, aplicações e middleware.
@@ -43,19 +46,31 @@ TITULO_FORA_DE_DADOS = rf"\boracle (?:{_ORACLE_APLICACOES})\b|\b(?:oic|osb|bpm|s
 FAMILIA_TITULO = [
     (Familia.analytics_engineering, r"analytics engineer|engenheir[oa] de analytics"),
     (Familia.engenharia_dados, r"engenheir[oa]s? (de )?(big )?dados|engenharia (de )?(plataforma de )?dados|data engineer|"
-                               r"big data engineer|dataops|arquitet[oa]s? de dados|data architect|plataforma de dados|data platforms? engineer"),
+                               r"big data engineer|dataops|arquitet[oa]s? de dados|data architect|plataforma de dados|data platforms? engineer|"
+                               # 2.2.0: "Engenheiro Big Data", "Arquitetura de Dados" e os títulos em espanhol
+                               r"engenheir[oa]s? (de )?big data|(?<!governanca e )arquitetura de dados|"
+                               r"ingenier[oa]s? (de )?(big )?datos|ingenier[oa]s? (de )?big data|ingenieria (de )?datos|"
+                               r"arquitect[oa]s? de datos|arquitectura de datos|plataforma de datos"),
     # DBA e Administração de Dados (AD: modelagem, dicionário e padrões de dados).
-    (Familia.administracao_dados, rf"\bdba\b|\bdbre\b|administrador[a]?(es)? (de )?({_BANCO}|dados)|"
+    (Familia.administracao_dados, rf"\bdba\b|\bdbre\b|administrador[a]?(es)? (de )?({_BANCO}|dados|datos)|"
                                   rf"administracao (de )?({_BANCO}|dados)|analista (de )?(administracao de )?{_BANCO}|"
                                   rf"(especialista|engenheir[oa]|consultor[a]?|suporte) (de |em )?{_BANCO}|"
                                   r"database (administrator|admin|engineer|reliability|specialist|analyst)|data administrator"),
     # Desenvolvimento de dados, incluindo PL/SQL, SQL e banco de dados ("Desenvolvedor Oracle PL/SQL", "SQL Developer").
-    (Familia.desenvolvimento_dados, rf"desenvolvedor[a]? (de )?(dados|etl|bi)\b|(etl|bi|data) developer|"
-                                    rf"(desenvolvedor[a]?|programador[a]?|analista) (de |em )?(pl ?/ ?sql|{_ORACLE}|sql( server)?|{_BANCO}|etl)\b|"
+    (Familia.desenvolvimento_dados, rf"{_DEV} (de )?(dados|datos|etl|bi)\b|(etl|bi|data) developer|"
+                                    rf"({_DEV}|programador[a]?|analista) (de |em )?(pl ?/ ?sql|{_ORACLE}|sql( server)?|{_BANCO}|etl)\b|"
                                     rf"(pl ?/ ?sql|database|sql|{_ORACLE}( sql)?) developer|engenheir[oa]s? de bi\b|\bbi engineer|"
-                                    rf"desenvolvedor[a]? (de )?(visualizacao de )?({_FERRAMENTA_BI}|bi)\b|({_FERRAMENTA_BI}) developer"),
-    (Familia.governanca_qualidade, r"governanca( e [a-z ]+?)? de dados|data governance|qualidade de dados|data quality|data steward|integracao de dados|\bmdm\b"),
-    (Familia.analise_dados, r"analista (de )?(dados|bi)\b|data analyst|business intelligence|analista de business intelligence|"
+                                    rf"{_DEV} (de )?(visualizacao de )?({_FERRAMENTA_BI}|bi)\b|({_FERRAMENTA_BI}) developer"),
+    (Familia.governanca_qualidade, r"governanca( e [a-z ]+?)? de dados|data governance|qualidade de dados|data quality|data steward|"
+                                   r"integracao de dados|\bmdm\b|"
+                                   # 2.2.0: gestão de dados e espanhol
+                                   r"gestao de dados|gobierno de datos|gobernanza de datos|calidad de datos|integracion de datos"),
+    (Familia.analise_dados, r"analista (de )?(dados|datos|bi)\b|data analyst|business intelligence|analista de business intelligence|"
+                            # 2.2.0: senioridade no meio ("Analista Sr. de Dados"), inteligência de dados, análise de
+                            # dados, assistente de dados/BI, "* analytics" de produto, negócio e pessoas, espanhol
+                            r"analista (sr|senior|pleno|pl|jr|junior)\.? (de )?(dados|bi)\b|analista (de )?inteligencia (de )?dados|"
+                            r"analise de dados|assistente (de )?(dados|bi)\b|\b(data|product|business|people) analytics\b(?! engineer)|"
+                            r"inteligencia de negocios|"
                             # BI e visualização (2.1.2): "Analista de Power BI", "Especialista em BI", "Consultor Qlik
                             # Sense", "Data Visualization Specialist". O cargo vem antes da ferramenta (até 2 palavras
                             # entre eles), para "Assistente administrativo com Power BI" não entrar.

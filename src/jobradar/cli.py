@@ -20,6 +20,8 @@
     jobradar competencias candidatas fila de curadoria: termos que a taxonomia não cobre
     jobradar avaliacao amostrar      sorteia vagas para o conjunto-ouro (privado)
     jobradar avaliacao medir         precisão/recall da extração contra o conjunto-ouro
+    jobradar avaliacao amostrar-classificacao | medir-classificacao   família, subfamília e idiomas no ouro
+    jobradar classificacao [--dias]  subfamílias, idioma das vagas e idiomas exigidos (agregados)
     jobradar coocorrencia [--skill]  competências que aparecem juntas (suporte, confiança, lift, Jaccard)
     jobradar curriculo ...           currículo PRIVADO, só local: importar, versoes, mostrar, comparar,
                                      exportar, apagar, diagnostico, historico
@@ -539,6 +541,23 @@ def cmd_avaliacao(a, s) -> int:
     from .avaliacao import amostrar, avaliar, carregar_ouro, relatorio, salvar_ouro
     from .transformations.skills import Taxonomy
     tax = Taxonomy(s.skills)
+    if a.acao == "amostrar-classificacao":
+        from .avaliacao import amostrar_classificacao
+        conjunto = amostrar_classificacao(Lake(s.lake), a.por_familia, a.adjacentes, a.outros_idiomas, a.semente,
+                                          carregar_ouro(s.lake), tax.versao, a.lote or "ajuste")
+        print(f"conjunto-ouro com {len(conjunto.itens)} vaga(s) em {salvar_ouro(s.lake, conjunto)}; "
+              "preencha `classificacao` e marque `classificacao.revisado: true` (regras em docs/avaliacao.md)")
+        return 0
+    if a.acao == "medir-classificacao":
+        from .avaliacao import classificacao as av_cls
+        conjunto = carregar_ouro(s.lake)
+        itens = conjunto.rotulados(a.incluir_rascunhos, a.lote) if conjunto else []
+        if not itens:
+            print("nenhuma vaga rotulada" + ("" if a.incluir_rascunhos else " e revisada (use --incluir-rascunhos)"))
+            return 1
+        rascunho = " (inclui rascunhos)" if a.incluir_rascunhos else ""
+        print(f"## Classificação do cargo{rascunho}\n" + av_cls.relatorio(av_cls.medir(itens, tax)))
+        return 0
     if a.acao == "amostrar":
         familias = [f for f in s.filtros.get("familias", []) if f != "outra"]
         conjunto = amostrar(Lake(s.lake), tax.versao, familias, a.completas, a.trechos, a.semente,
@@ -623,6 +642,15 @@ def cmd_saude(a, s) -> int:
         print(saude.markdown(ind, al))
     if a.resumo_github:
         _resumo_github(saude.markdown(ind, al))
+    return 0
+
+
+def cmd_classificacao(a, s) -> int:
+    """Subfamílias, idioma das vagas e idiomas exigidos (ADR 0014). Só agregados."""
+    from .analytics import cargos
+    familias = [f for f in s.filtros.get("familias", []) if f != "outra"]
+    r = cargos.resumo(Lake(s.lake).read("silver/jobs"), utcnow(), familias, dias=a.dias)
+    print(json.dumps(r, ensure_ascii=False, indent=2) if a.json else cargos.markdown(r))
     return 0
 
 
@@ -881,8 +909,12 @@ def main(argv: list[str] | None = None) -> None:
     cd = cp_sub.add_parser("candidatas", help="termos frequentes que a taxonomia não cobre")
     cd.add_argument("--dias", type=int, default=90); cd.add_argument("--min-vagas", type=int, default=5)
     cd.add_argument("-n", type=int, default=40); cd.set_defaults(f=cmd_candidatas)
-    av = sub.add_parser("avaliacao"); av.add_argument("acao", choices=["amostrar", "medir"])
+    av = sub.add_parser("avaliacao"); av.add_argument("acao", choices=["amostrar", "medir", "amostrar-classificacao",
+                                                                       "medir-classificacao"])
     av.add_argument("--completas", type=int, default=25); av.add_argument("--trechos", type=int, default=15)
+    av.add_argument("--por-familia", type=int, default=8, help="amostrar-classificacao: vagas por família")
+    av.add_argument("--adjacentes", type=int, default=10, help="amostrar-classificacao: cargos adjacentes em `outra`")
+    av.add_argument("--outros-idiomas", type=int, default=8, help="amostrar-classificacao: vagas fora do português")
     av.add_argument("--semente", type=int, default=42); av.add_argument("--lote", default=None,
                                                                         help="amostrar: nome do lote (padrão ajuste); medir: filtra")
     av.add_argument("--incluir-rascunhos", action="store_true"); av.add_argument("--base", help="YAML de outra taxonomia para comparar")
@@ -911,6 +943,9 @@ def main(argv: list[str] | None = None) -> None:
     ql.add_argument("--dias", type=int, help="fontes: janela (padrão 30); reconstruir-formato: só os últimos N dias")
     ql.add_argument("--fonte"); ql.add_argument("-n", type=int, default=20); ql.add_argument("--json", action="store_true")
     ql.set_defaults(f=cmd_qualidade)
+    cc = sub.add_parser("classificacao", help="subfamílias, idioma das vagas e idiomas exigidos (só agregados)")
+    cc.add_argument("--dias", type=int, default=30); cc.add_argument("--json", action="store_true")
+    cc.set_defaults(f=cmd_classificacao)
     sd = sub.add_parser("saude", help="indicadores e alertas da operação (só agregados)")
     sd.add_argument("--json", action="store_true"); sd.add_argument("--resumo-github", action="store_true")
     sd.set_defaults(f=cmd_saude)
