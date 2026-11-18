@@ -90,3 +90,15 @@ def test_oracle_de_erp_e_middleware_nao_e_vaga_de_dados():
     assert not n.titulo_conta_por_competencias("Oracle Technical Consultant ( OIC / OCI Cloud)")
     assert n.titulo_conta_por_competencias("Analista de Sistemas Pleno")
     assert n.familia("Desenvolvedor Oracle PL/SQL", set())[0] == Familia.desenvolvimento_dados
+
+
+def test_familia_bi_e_visualizacao_pelo_titulo():
+    for t in ["Analista de Power BI Sr.", "ESPECIALISTA EM BI - SP", "Consultor Qlik Sense", "Analista Pleno de BI",
+              "Data Visualization Specialist", "Analista de Dataviz", "Especialista Looker", "Tableau Analyst"]:
+        assert n.familia(t, set())[0] == Familia.analise_dados, t
+    for t in ["Desenvolvedor(a) Power BI", "Desenvolvedor(a) Qlik Sense", "Desenvolvedor de Visualização de BI Junior",
+              "Engenheiro de BI"]:
+        assert n.familia(t, set())[0] == Familia.desenvolvimento_dados, t
+    # a ferramenta citada num cargo de outra área não faz a vaga ser de dados
+    for t in ["Assistente Administrativo (Excel e Power BI)", "Auxiliar de Faturamento - Power BI", "Bilingual Support"]:
+        assert n.familia(t, set())[0] == Familia.outra, t

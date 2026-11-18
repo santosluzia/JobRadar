@@ -74,7 +74,8 @@ def test_fonte_fora_do_ar_gera_execucao_parcial(settings, fake):
     fake.falhar = {"adzuna"}
     rep = pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
     adz = next(f for f in rep.fontes if f.source == "adzuna")
-    assert rep.status == "parcial" and not adz.ok and adz.retentativas == 2
+    # cada termo é tentado (2 retentativas por termo) até 3 termos seguidos com erro
+    assert rep.status == "parcial" and not adz.ok and adz.retentativas == 2 * min(len(settings.termos), 3)
     assert set(Lake(settings.lake).read("silver/jobs")["source"]) == {"gupy", "greenhouse"}
 
 

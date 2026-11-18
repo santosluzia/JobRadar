@@ -31,9 +31,11 @@ class GupyCollector(Collector):
                 raise SourceError("gupy: resposta sem o campo 'data' (formato mudou?)")
             dados = corpo["data"] or []
             registros.extend(dados)
-            total = (corpo.get("pagination") or {}).get("total", len(dados))
             offset += pagina
-            if not dados or offset >= total:
+            # Não confie em `pagination.total`: com limit=100 ele vem limitado à página (em 2026-11-18,
+            # "analista de dados" informava total 100 com 191 vagas; com limit=10, informava 191). Só uma
+            # página incompleta (ou vazia) indica o fim.
+            if len(dados) < pagina:
                 break
             self._sleep()
         return registros

@@ -12,7 +12,7 @@
 # esforco:    estimativa de aprendizagem (baixo | medio | alto) — opinião configurável, não dado observado.
 # projeto:    se dá para demonstrar num projeto prático de portfólio.
 
-versao: "2.1.1"
+versao: "2.1.2"
 
 competencias:
   # ---------------------------------------------------------------- Linguagens
