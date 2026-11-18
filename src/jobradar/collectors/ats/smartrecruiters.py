@@ -62,6 +62,7 @@ class SmartRecruitersCollector(Collector):
     def collect(self, termos: list[str]) -> CollectResult:
         empresas = self.cfg.get("empresas") or []
         nomes = self.cfg.get("nomes") or {}
+        fixos = self.cfg.get("nomes_fixos") or {}
         result = CollectResult(self.name, params={"empresas": empresas})
         todos = []
         for board in empresas:
@@ -69,6 +70,8 @@ class SmartRecruitersCollector(Collector):
                 vagas, total = self._listar(board, result)
                 for job in vagas:
                     job["_board"], job["_empresa_nome"] = board, nomes.get(board)
+                    if board in fixos:
+                        job["_empresa_fixa"] = fixos[board]
                     todos.append(job)
                 registrar_quadro(result, board, vagas, total)
             self._sleep()
@@ -110,7 +113,7 @@ class SmartRecruitersCollector(Collector):
             source_job_id=str(r["id"]) if r.get("id") is not None else None,
             url=det.get("postingUrl") or det.get("applyUrl") or "",
             title=r.get("name") or "",
-            company=(r.get("company") or {}).get("name") or r.get("_empresa_nome") or r.get("_board"),
+            company=r.get("_empresa_fixa") or (r.get("company") or {}).get("name") or r.get("_empresa_nome") or r.get("_board"),
             location_raw=loc.get("fullLocation") or ", ".join(p for p in (loc.get("city"), loc.get("region")) if p) or None,
             city=loc.get("city") or None,
             state=loc.get("region") or None,

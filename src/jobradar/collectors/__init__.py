@@ -33,6 +33,8 @@ def build_collectors(s: Settings) -> list[Collector]:
         cfg["empresas"] = list(dict.fromkeys([*catalogo.quadros_ativos(nome), *(cfg.get("empresas") or [])]))
         # Nome de exibição do catálogo: usado quando a API não informa a empresa (Ashby)
         cfg["nomes"] = {e.board: e.nome for e in catalogo.empresas if e.ats == nome and e.board}
+        # nome_fixo: true → o nome do catálogo vence o que a API informa (ADR 0012)
+        cfg["nomes_fixos"] = {e.board: e.nome for e in catalogo.empresas if e.ats == nome and e.board and e.nome_fixo}
         if cfg.get("ativo") and cfg["empresas"]:
             coletores.append(cls(cfg))
     return coletores

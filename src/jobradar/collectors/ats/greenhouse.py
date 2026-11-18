@@ -21,6 +21,7 @@ class GreenhouseCollector(Collector):
     def collect(self, termos: list[str]) -> CollectResult:
         empresas = self.cfg.get("empresas") or []
         result = CollectResult(self.name, params={"empresas": empresas})
+        fixos = self.cfg.get("nomes_fixos") or {}
         todos = []
         for token in empresas:
             with medindo(result, token):
@@ -30,6 +31,8 @@ class GreenhouseCollector(Collector):
                     raise SourceError("resposta sem a lista 'jobs' (formato mudou?)")
                 for job in vagas:
                     job["_board"] = token
+                    if token in fixos:
+                        job["_empresa_fixa"] = fixos[token]
                     todos.append(job)
                 registrar_quadro(result, token, vagas, (corpo.get("meta") or {}).get("total"))
             self._sleep()
@@ -43,7 +46,7 @@ class GreenhouseCollector(Collector):
             source_job_id=str(r.get("id")),
             url=r.get("absolute_url") or "",
             title=r.get("title") or "",
-            company=r.get("company_name") or r.get("_board"),
+            company=r.get("_empresa_fixa") or r.get("company_name") or r.get("_board"),
             location_raw=local,
             modality_raw="remoto" if local and "remot" in local.lower() else None,
             published_at=r.get("first_published") or r.get("updated_at"),

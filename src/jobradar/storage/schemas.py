@@ -85,6 +85,16 @@ TABLES: dict[str, pa.Schema] = {
         ("vagas_listadas", pa.int64()), ("vagas_mantidas", pa.int64()), ("requisicoes", pa.int64()),
         ("retentativas", pa.int64()), ("duracao_s", pa.float64()), ("erro", S), ("finalizada_em", TS),
     ]),
+    # Verificação de quadros na curadoria de empresas (docs/adr/0012): uma linha por verificação manual
+    # (`jobradar empresas detectar|verificar`). Só dados públicos e operacionais. `vagas_dados` = passaram
+    # no filtro de título da coleta; `vagas_brasil`/`vagas_alvo` contam entre elas (alvo = BR, PT e
+    # América Latina); `paises` = JSON {país: vagas de dados}, "?" = não identificado.
+    "meta/empresas_verificacoes": pa.schema([
+        ("em", TS), ("empresa_id", S), ("ats", S), ("board", S), ("ok", pa.bool_()), ("completo", pa.bool_()),
+        ("vagas_listadas", pa.int64()), ("vagas_dados", pa.int64()), ("vagas_brasil", pa.int64()),
+        ("vagas_alvo", pa.int64()), ("paises", S), ("nome_api", S), ("erro", S), ("requisicoes", pa.int64()),
+        ("duracao_s", pa.float64()),
+    ]),
     # Etapa 8: resultado das validações por execução. Público (contrato, taxonomia) e privado (perfil,
     # radar.yaml) em tabelas separadas: os dois workflows nunca gravam o mesmo arquivo (sem conflito de push).
     "meta/validacoes": pa.schema([

@@ -13,12 +13,16 @@
 # status            candidata (aguarda curadoria) | ativa (coletada) | pausada | descartada
 # verificada_em     última conferência humana do quadro (obrigatória para ativa)
 # origem            manual | descoberta
+# nome_fixo         true = a coleta usa `nome` no lugar do nome que a API informa (quadro publicado por parceiro).
+#                   Omitido = false: o nome vem da fonte (docs/adr/0012)
 #
 # A URL da API e a página do quadro no ATS são derivadas de ats + board (não repita aqui).
 # A última coleta bem-sucedida é medida a cada execução (meta/board_runs): `jobradar empresas listar`.
 # Para incluir uma empresa, confirme o quadro em boards.greenhouse.io/<token>, jobs.lever.co/<slug>,
 # jobs.ashbyhq.com/<quadro> ou api.smartrecruiters.com/v1/companies/<id>/postings
 # e anote a data em verificada_em (docs/operations.md, "Incluir uma empresa").
+# Fila de curadoria: `jobradar empresas detectar URL --adicionar ...` inclui como candidata;
+# `jobradar empresas aprovar ID` ativa depois de uma verificação sem pendências (docs/adr/0012).
 
 versao: 1
 
@@ -53,3 +57,10 @@ empresas:
   # ------------------------------------------------------------ Lever
   - {id: ciandt, nome: CI&T, pais: BR, segmento: consultoria, ats: lever, board: ciandt,
      status: ativa, verificada_em: 2026-10-16}
+
+  # ------------------------------------------------------------ Candidatas (descoberta assistida)
+  - {id: artefact, nome: Artefact, pais: FR, segmento: consultoria, ats: greenhouse, board: artefact,
+     status: candidata, origem: descoberta, observacoes: detectada em 2026-11-17}
+  - {id: artefact-linkedin, nome: Artefact, pais: FR, segmento: consultoria, ats: greenhouse,
+     board: artefactlinkedin, status: candidata, origem: descoberta,
+     observacoes: detectada em 2026-11-17; a API informa a empresa como 'LinkedIn Job Wrapping'}

@@ -11,13 +11,18 @@ from ..storage import Lake
 from .catalogo import Catalogo, _chave
 
 COLUNAS = ["id", "nome", "pais", "segmento", "ats", "board", "status", "verificada_em", "ultima_coleta_ok",
-           "ultima_tentativa", "ultima_ok", "falhas_seguidas", "vagas_listadas", "vagas_mantidas"]
+           "ultima_tentativa", "ultima_ok", "falhas_seguidas", "vagas_listadas", "vagas_mantidas",
+           "ultima_verificacao", "vagas_dados_verificacao"]
 
 
 def situacao(catalogo: Catalogo, lake: Lake) -> pd.DataFrame:
     runs = lake.read("meta/board_runs")
+    verifs = lake.read("meta/empresas_verificacoes")   # curadoria (ADR 0012)
     linhas = []
     for e in catalogo.empresas:
+        ver = verifs[(verifs["ats"] == e.ats) & (verifs["board"].astype(str).str.lower() == (e.board or "").lower())] \
+            if e.board and not verifs.empty else verifs.iloc[0:0]
+        ult_ver = ver.sort_values("em").iloc[-1] if not ver.empty else None
         r = runs[(runs["source"] == e.ats) & (runs["quadro"].map(lambda q: _chave(str(q))) == _chave(e.board or ""))] \
             if e.board and not runs.empty else runs.iloc[0:0]
         r = r.sort_values("finalizada_em")
@@ -38,5 +43,7 @@ def situacao(catalogo: Catalogo, lake: Lake) -> pd.DataFrame:
             "falhas_seguidas": falhas,
             "vagas_listadas": int(ult_ok["vagas_listadas"]) if ult_ok is not None else None,
             "vagas_mantidas": int(ult_ok["vagas_mantidas"]) if ult_ok is not None else None,
+            "ultima_verificacao": ult_ver["em"] if ult_ver is not None else None,
+            "vagas_dados_verificacao": int(ult_ver["vagas_dados"]) if ult_ver is not None and ult_ver["ok"] else None,
         })
     return pd.DataFrame(linhas, columns=COLUNAS)

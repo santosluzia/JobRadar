@@ -28,6 +28,7 @@ class Settings:
     lake: Path
     evolucao: dict[str, Any] = field(default_factory=dict)   # config/evolucao.yaml (conteúdo de estudo editável)
     empresas: dict[str, Any] = field(default_factory=dict)   # config/empresas.yaml (catálogo de empresas)
+    config_dir: Path = CONFIG_DIR                            # onde estão os YAMLs (a curadoria edita empresas.yaml)
 
     def env(self, nome: str) -> str | None:
         valor = os.getenv(nome)
@@ -72,4 +73,5 @@ def carregar(lake: str | Path | None = None, config_dir: str | Path | None = Non
         lake=lake_path,
         evolucao=_yaml(cdir / "evolucao.yaml") if (cdir / "evolucao.yaml").exists() else {},
         empresas=_yaml(cdir / "empresas.yaml") if (cdir / "empresas.yaml").exists() else {},
+        config_dir=cdir,
     )

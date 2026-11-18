@@ -5,6 +5,11 @@
     jobradar notify [--dry-run]      e-mail com vagas ainda não notificadas
     jobradar status                  últimas execuções e saúde das fontes
     jobradar empresas listar         catálogo de empresas (config/empresas.yaml) e última coleta de cada uma
+    jobradar empresas detectar URL   descobre o ATS/quadro de uma página de carreiras e verifica o quadro
+                                     (--adicionar --nome --pais --segmento: põe na fila como candidata)
+    jobradar empresas verificar [ID] confere quadros (padrão: as candidatas) e registra o resultado
+    jobradar empresas aprovar ID     candidata → ativa, se a última verificação não tiver pendências
+    jobradar empresas descartar ID --motivo TEXTO
     jobradar recomendacoes           prioridades de estudo (privado)
     jobradar candidatura ID STATUS   registra status de candidatura (privado)
     jobradar estudo SKILL STATUS     registra progresso de estudo (privado)
@@ -231,7 +236,182 @@ def cmd_status(a, s) -> int:
 
 
 def cmd_empresas(a, s) -> int:
-    """Catálogo + situação medida (meta/board_runs). Só dados públicos e operacionais."""
+    """Catálogo, situação medida e fila de curadoria (ADR 0009 e 0012). Só dados públicos e operacionais."""
+    acoes = {"listar": _empresas_listar, "detectar": _empresas_detectar, "verificar": _empresas_verificar,
+             "aprovar": _empresas_aprovar, "descartar": _empresas_descartar}
+    if a.acao != "listar" and a.acao != "verificar" and len(a.alvo) != 1:
+        print(f"uso: jobradar empresas {a.acao} {'URL' if a.acao == 'detectar' else 'ID'}")
+        return 2
+    return acoes[a.acao](a, s)
+
+
+def _imprimir_verificacao(v, nome_catalogo: str | None = None, nome_fixo: bool = False) -> None:
+    if not v.ok:
+        print(f"  ❌ o quadro não respondeu: {v.erro}")
+        return
+    print(f"  {'quadro completo' if v.completo else 'quadro INCOMPLETO'} · {v.vagas_listadas} vagas · "
+          f"{v.vagas_dados} de dados · {v.vagas_brasil} no Brasil · {v.vagas_alvo} no alvo (BR, PT, América Latina)")
+    if v.paises:
+        print("  países das vagas de dados: " + ", ".join(f"{p} {n}" for p, n in v.paises.items()))
+    if v.nome_api:
+        print(f"  nome informado pela API: {v.nome_api}")
+    pend = v.pendencias(nome_catalogo, nome_fixo)
+    print("  ✅ sem pendências" if not pend else "  pendências:\n" + "\n".join(f"   - {p}" for p in pend))
+
+
+def _empresas_detectar(a, s) -> int:
+    import re
+
+    from pydantic import ValidationError
+
+    from .empresas import carregar_catalogo
+    from .empresas import verificacao as vf
+    from .empresas.catalogo import COLETORES, Empresa
+    from .empresas.curadoria import CuradoriaErro, adicionar_candidata
+    from .empresas.deteccao_ats import PaginaIndisponivel, detectar
+    from .transformations.text import normalizar
+
+    url = a.alvo[0]
+    try:
+        achados = detectar(url)
+    except PaginaIndisponivel as e:
+        print(f"não foi possível ler a página: {e}")
+        print("dica: abra a página no navegador, copie o link de uma vaga e rode de novo com esse link")
+        return 1
+    if not achados:
+        print("nenhum quadro de ATS conhecido (Greenhouse, Lever, Ashby, SmartRecruiters, Gupy, Workday) nesta página")
+        return 1
+    cat, lake, verificados = carregar_catalogo(s.empresas), Lake(s.lake), []
+    try:
+        for d in achados:
+            existente = cat.por_quadro(d.ats, d.board) if d.board else None
+            print(f"\n{d.ats} · quadro {d.board or '—'}"
+                  + (f" · já no catálogo como {existente.id} ({existente.status})" if existente else ""))
+            if d.regiao == "eu":
+                print("  ambiente europeu da plataforma: o coletor só lê o endereço global, fica fora")
+                continue
+            if d.ats not in COLETORES or not d.board:
+                print("  plataforma sem coletor por empresa: só registro (ADR 0009)")
+                continue
+            v = vf.verificar(d.ats, d.board, s.fonte(d.ats), empresa_id=existente.id if existente else None)
+            verificados.append((d, v))
+            _imprimir_verificacao(v, a.nome or (existente.nome if existente else None),
+                                  bool(existente and existente.nome_fixo))
+        if not a.adicionar:
+            if any(not cat.por_quadro(d.ats, d.board) for d, _ in verificados):
+                print("\npara pôr na fila de curadoria: repita com --adicionar --nome NOME --pais XX --segmento SEGMENTO")
+            return 0
+        novos = [(d, v) for d, v in verificados if not cat.por_quadro(d.ats, d.board)]
+        if len(novos) != 1:
+            print(f"\n--adicionar precisa de exatamente um quadro novo com coletor (achei {len(novos)}); "
+                  "rode de novo com o link do quadro escolhido")
+            return 1
+        faltam = [n for n in ("nome", "pais", "segmento") if not getattr(a, n)]
+        if faltam:
+            print("\n--adicionar precisa de " + ", ".join(f"--{n}" for n in faltam))
+            return 2
+        d, v = novos[0]
+        id_ = a.id or re.sub(r"[^a-z0-9]+", "", normalizar(a.nome))
+        obs = [f"detectada em {v.em.date().isoformat()}"]
+        if vf.nome_diverge(v.nome_api, a.nome):
+            obs.append(f"a API informa a empresa como '{v.nome_api}'")
+        try:
+            emp = Empresa(id=id_, nome=a.nome, pais=a.pais.upper(), segmento=a.segmento, ats=d.ats, board=d.board,
+                          pagina_carreiras=url if d.url != url and url.startswith("https://") else None,
+                          status="candidata", origem="descoberta", observacoes="; ".join(obs))
+            adicionar_candidata(s.config_dir / "empresas.yaml", emp)
+        except (CuradoriaErro, ValidationError) as e:
+            print(f"\nnão incluída: {e}")
+            return 1
+        v.empresa_id = id_
+        print(f"\n{id_} incluída como candidata em config/empresas.yaml (não entra na coleta ainda).")
+        print(f"revise o quadro e rode: jobradar empresas aprovar {id_}")
+        return 0
+    finally:
+        vf.registrar(lake, [v for _, v in verificados])
+
+
+def _empresas_verificar(a, s) -> int:
+    from .empresas import carregar_catalogo
+    from .empresas import verificacao as vf
+    from .empresas.catalogo import COLETORES
+
+    cat = carregar_catalogo(s.empresas)
+    if a.alvo:
+        desconhecidos = sorted(set(a.alvo) - {e.id for e in cat.empresas})
+        if desconhecidos:
+            print(f"não estão no catálogo: {', '.join(desconhecidos)}")
+            return 2
+        alvos = [e for e in cat.empresas if e.id in a.alvo]
+    else:
+        alvos = [e for e in cat.empresas if e.status == (a.status or "candidata")]
+    alvos = [e for e in alvos if e.ats in COLETORES and e.board and (not a.ats or e.ats == a.ats)]
+    if not alvos:
+        print("nenhuma empresa com quadro verificável nesse filtro (padrão: as candidatas)")
+        return 0
+    verificacoes = []
+    for e in alvos:
+        print(f"\n{e.id} · {e.nome} · {e.ats}/{e.board} · {e.status}")
+        v = vf.verificar(e.ats, e.board, s.fonte(e.ats), empresa_id=e.id)
+        verificacoes.append(v)
+        _imprimir_verificacao(v, e.nome, e.nome_fixo)
+    vf.registrar(Lake(s.lake), verificacoes)
+    return 0
+
+
+def _empresa_do_catalogo(s, id_: str):
+    from .empresas import carregar_catalogo
+    return next((e for e in carregar_catalogo(s.empresas).empresas if e.id == id_), None)
+
+
+def _empresas_aprovar(a, s) -> int:
+    from .empresas import verificacao as vf
+    from .empresas.curadoria import CuradoriaErro, aprovar
+
+    e = _empresa_do_catalogo(s, a.alvo[0])
+    if e is None:
+        print(f"'{a.alvo[0]}' não está no catálogo")
+        return 2
+    v = vf.ultima(Lake(s.lake), e.ats, e.board) if e.board else None
+    if v is None:
+        print(f"sem verificação registrada para {e.id}: rode jobradar empresas verificar {e.id}")
+        return 1
+    pend = v.pendencias(e.nome, e.nome_fixo)
+    if vf.vencida(v, utcnow().date()):
+        pend.insert(0, f"a última verificação é de {v.em.date().isoformat()} (mais de {vf.VALIDADE_DIAS} dias): "
+                       f"rode jobradar empresas verificar {e.id}")
+    if pend and not a.forcar:
+        print(f"{e.id} não foi aprovada:\n" + "\n".join(f" - {p}" for p in pend))
+        print("nada foi alterado (--forcar aprova mesmo assim)")
+        return 1
+    try:
+        aprovar(s.config_dir / "empresas.yaml", e, v.em.date(),
+                nota=f"aprovada com pendências em {utcnow().date().isoformat()}" if pend else None)
+    except CuradoriaErro as err:
+        print(err)
+        return 1
+    print(f"{e.id} aprovada: status ativa, verificada_em {v.em.date().isoformat()}. Entra na próxima coleta "
+          "depois que config/empresas.yaml for para a main.")
+    return 0
+
+
+def _empresas_descartar(a, s) -> int:
+    from .empresas.curadoria import CuradoriaErro, descartar
+
+    e = _empresa_do_catalogo(s, a.alvo[0])
+    if e is None:
+        print(f"'{a.alvo[0]}' não está no catálogo")
+        return 2
+    try:
+        descartar(s.config_dir / "empresas.yaml", e, a.motivo or "", utcnow().date())
+    except CuradoriaErro as err:
+        print(err)
+        return 1
+    print(f"{e.id} descartada (o motivo fica em observacoes)")
+    return 0
+
+
+def _empresas_listar(a, s) -> int:
     from .empresas import carregar_catalogo, situacao
     tab = situacao(carregar_catalogo(s.empresas), Lake(s.lake))
     if a.status:
@@ -244,8 +424,9 @@ def cmd_empresas(a, s) -> int:
     import pandas as pd
     for col in ("ultima_coleta_ok", "ultima_tentativa"):
         tab[col] = pd.to_datetime(tab[col], utc=True).dt.strftime("%Y-%m-%d %H:%M")
+    tab["ultima_verificacao"] = pd.to_datetime(tab["ultima_verificacao"], utc=True).dt.strftime("%Y-%m-%d")
     cols = ["id", "nome", "pais", "segmento", "ats", "status", "verificada_em", "ultima_coleta_ok",
-            "falhas_seguidas", "vagas_listadas", "vagas_mantidas"]
+            "falhas_seguidas", "vagas_listadas", "vagas_mantidas", "ultima_verificacao"]
     print(tab[cols].astype(object).where(tab[cols].notna(), "—").to_string(index=False))
     ativas = tab[tab["status"] == "ativa"]
     print(f"\n{len(tab)} empresas · {len(ativas)} ativas · "
@@ -633,9 +814,16 @@ def main(argv: list[str] | None = None) -> None:
     me.set_defaults(f=cmd_mensal)
     st = sub.add_parser("status"); st.add_argument("-n", type=int, default=10); st.set_defaults(f=cmd_status)
     em = sub.add_parser("empresas", help="catálogo de empresas monitoradas e situação da coleta")
-    em.add_argument("acao", choices=["listar"])
+    em.add_argument("acao", choices=["listar", "detectar", "verificar", "aprovar", "descartar"])
+    em.add_argument("alvo", nargs="*", help="detectar: URL da página de carreiras ou do quadro; "
+                                            "verificar: ids (padrão: as candidatas); aprovar/descartar: id")
     em.add_argument("--status", choices=["candidata", "ativa", "pausada", "descartada"])
     em.add_argument("--ats")
+    em.add_argument("--adicionar", action="store_true", help="detectar: inclui o quadro como candidata no catálogo")
+    em.add_argument("--id"); em.add_argument("--nome"); em.add_argument("--pais", help="ISO alfa-2, ex.: BR")
+    em.add_argument("--segmento")
+    em.add_argument("--forcar", action="store_true", help="aprovar: aprova mesmo com pendências")
+    em.add_argument("--motivo", help="descartar: por que a empresa sai da fila")
     em.set_defaults(f=cmd_empresas)
     rc = sub.add_parser("recomendacoes"); rc.add_argument("-n", type=int, default=15)
     rc.add_argument("--objetivo", help="id do objetivo do perfil (padrão: todos, separados)")

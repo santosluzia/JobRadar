@@ -7,7 +7,8 @@ O JobRadar é um pipeline em lote, executado a cada 6 horas no GitHub Actions (0
 ```
 src/jobradar/
 ├── collectors/        coleta por fonte (collect → bronze, to_raw_job → silver); ats/ = um módulo por ATS
-├── empresas/          catálogo de empresas (config/empresas.yaml) e situação da coleta por empresa
+├── empresas/          catálogo de empresas (config/empresas.yaml), situação da coleta por empresa,
+│                      descoberta do ATS, verificação de quadros e fila de curadoria
 ├── models/            schema canônico (Pydantic) e enums
 ├── transformations/   normalização, competências, chaves de dedup
 ├── storage/           lake em Parquet (sem conhecimento de git)
@@ -236,8 +237,13 @@ Detalhes em docs/adr/0009-catalogo-de-empresas.md.
 
 - **Curado × medido:** `config/empresas.yaml` guarda o que foi conferido (país, segmento, ATS, quadro,
   status, data da verificação); `meta/board_runs` guarda o que cada execução mediu por quadro.
-- **Só `status: ativa` é coletada.** Candidatas (descoberta assistida, próximo passo) esperam curadoria.
+- **Só `status: ativa` é coletada.** Candidatas esperam curadoria.
 - **Consulta:** `jobradar empresas listar [--status ativa] [--ats greenhouse]`.
+- **Descoberta assistida e curadoria** (ADR 0012): `jobradar empresas detectar URL` reconhece o ATS e o quadro
+  pelo endereço ou por UMA página de carreiras (com robots.txt, sem seguir links) e verifica o quadro com o
+  próprio coletor (`meta/empresas_verificacoes`). `--adicionar` põe a empresa na fila como `candidata`;
+  `aprovar` exige verificação de até 7 dias sem pendências. `nome_fixo: true` faz a coleta usar o nome do
+  catálogo quando a API informa outro.
 
 ## Governança e segurança
 

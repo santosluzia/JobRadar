@@ -27,7 +27,7 @@ def test_catalogo_versionado_e_valido_e_preserva_as_empresas_coletadas(tmp_path)
     cat = carregar_catalogo(s.empresas)
     assert cat.quadros_ativos("greenhouse") == GREENHOUSE_ANTES
     assert cat.quadros_ativos("lever") == ["ciandt"]
-    assert all(e.verificada_em and e.pais == "BR" for e in cat.empresas)
+    assert all(e.verificada_em and e.pais == "BR" for e in cat.empresas if e.status == "ativa")
     coletores = {c.name: c.cfg["empresas"] for c in build_collectors(s) if c.name in ("greenhouse", "lever")}
     assert coletores == {"greenhouse": GREENHOUSE_ANTES, "lever": ["ciandt"]}
 
