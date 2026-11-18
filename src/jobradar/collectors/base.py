@@ -75,6 +75,9 @@ class SourceError(RuntimeError):
 
 class Collector(ABC):
     name = "base"
+    # Campos do registro bruto que to_raw_job usa: se um deles some ou cai muito, o formato da fonte
+    # mudou (collectors/assinatura.py, ADR 0013). Caminho no formato de `assinatura.caminhos`.
+    CAMPOS_ESSENCIAIS: tuple[str, ...] = ()
 
     def __init__(self, cfg: dict[str, Any], client: httpx.Client | None = None):
         self.cfg = cfg

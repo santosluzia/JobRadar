@@ -126,6 +126,15 @@ de cada vaga (`scoring.melhor_por_vaga`); a análise por objetivo filtra `objeti
 - **runs:** `run_id`, `iniciada_em`, `finalizada_em`, `status` (sucesso · parcial · falha), `duracao_s`, `metricas` (json completo do relatório).
 - **source_runs:** `run_id`, `source`, `ok`, `coletados`, `validos`, `invalidos`, `duplicatas_fonte`, `novas`, `requisicoes`, `retentativas`, `erros`, `finalizada_em`.
 
+## meta/schema_assinaturas — formato dos registros brutos por fonte e execução
+
+`run_id`, `source`, `em`, `registros`, `hash` (12 caracteres; caminhos com presença ≥ 25%), `campos` (JSON
+`{caminho: {tipos, presenca_pct}}`, ex.: `location.area[]`), `essenciais` (JSON `{campo que o coletor usa:
+presença %}`), `comparada` (havia assinatura anterior comparável, com ≥ 5 registros), `mudou`, `grave` (campo
+essencial sumiu, caiu ≥ 30 pontos ou trocou de tipo) e `mudancas` (JSON: `novos`, `removidos`,
+`tipos_alterados`, `essenciais_em_queda`). Só nomes de campo e tipos, nunca valores. Fonte sem registro na
+execução não ganha linha (ADR 0013).
+
 ## meta/board_runs — uma linha por quadro de ATS (empresa) e execução
 
 `run_id`, `source` (`greenhouse` · `lever` · `ashby` · `smartrecruiters`), `quadro` (token/slug do catálogo), `ok`, `completo` (lido por

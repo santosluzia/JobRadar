@@ -257,6 +257,10 @@ Detalhes em docs/adr/0008-governanca-seguranca.md, docs/privacidade.md e docs/ra
 - **Validações registradas** em `meta/validacoes` e `private/validacoes`. Segredos mascarados em erros,
   logs e resumo. Actions fixadas por SHA. Painel só em `localhost`.
 - **Saúde:** `analytics/saude.py`, com indicadores e alertas só agregados.
+- **Qualidade por fonte e formato** (ADR 0013): `analytics/qualidade_fontes.py` dá nota de 0 a 100 por fonte
+  (disponibilidade, válidos, relevância, descrição completa, campos e extração, com n e período).
+  `collectors/assinatura.py` assina o formato dos registros brutos a cada execução (`meta/schema_assinaturas`)
+  e alerta quando um campo essencial do coletor (`CAMPOS_ESSENCIAIS`) some, cai ou troca de tipo.
 
 ## Retenção
 

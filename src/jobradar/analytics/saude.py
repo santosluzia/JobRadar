@@ -5,7 +5,8 @@ a saída pode ir para o resumo do GitHub Actions (público) e para o rodapé do 
 
 Indicadores: tempo de execução, volume, taxa de falha (7 e 30 dias), custo de IA (zero: a camada
 semântica é local e não há API paga), qualidade da extração por fonte, duplicação, qualidade dos
-indicadores (registros inválidos, vagas sem data/empresa) e validações (contrato, taxonomia).
+indicadores (registros inválidos, vagas sem data/empresa), validações (contrato, taxonomia), qualidade e
+nota por fonte e mudança de formato das respostas (analytics/qualidade_fontes.py, ADR 0013).
 """
 from __future__ import annotations
 
@@ -26,6 +27,8 @@ PADRAO = {
     "falhas_seguidas_fonte": 3,       # a mesma fonte falhou nas últimas N execuções
     "janela_extracao_dias": 30,
     "cobertura_extracao_min_pct_por_fonte": {},   # fontes com descrição truncada (Adzuna) têm régua própria
+    "janela_qualidade_dias": 30,      # qualidade e nota por fonte (ADR 0013)
+    "horas_alerta_formato": 24,       # mudança grave de formato fica em alerta por esse tempo
 }
 CUSTO_IA_USD = 0.0   # nenhuma chamada paga: extração por regras + embeddings locais (ADR 0002)
 
@@ -114,6 +117,11 @@ def indicadores(lake: Lake, agora: datetime | None = None, cfg: dict[str, Any] |
     v7 = val[pd.to_datetime(val["em"], utc=True) >= agora - timedelta(days=7)]
     saida["validacoes"] = {"7d": int(len(v7)), "falhas_7d": int((~v7["ok"].astype(bool)).sum()),
                            "artefatos_com_falha": sorted(v7.loc[~v7["ok"].astype(bool), "artefato"].unique().tolist())}
+
+    # qualidade por fonte e formato das respostas (ADR 0013)
+    from . import qualidade_fontes as qf
+    saida["qualidade_fontes"] = qf.por_fonte(lake, agora, c["janela_qualidade_dias"])
+    saida["formato_fontes"] = qf.situacao_schema(lake, agora, c["horas_alerta_formato"])
     return saida
 
 
@@ -153,6 +161,9 @@ def alertas(ind: dict[str, Any], cfg: dict[str, Any] | None = None) -> list[str]
             a.append(f"extração fraca em {x['fonte']}: {x['com_competencia_pct']}% das vagas com competência")
     if ind["validacoes"]["falhas_7d"]:
         a.append("validação falhou em 7 dias: " + ", ".join(ind["validacoes"]["artefatos_com_falha"]))
+    for f in ind.get("formato_fontes") or []:
+        if f["grave_recente"]:
+            a.append(f"formato da fonte {f['fonte']} mudou ({f['grave_recente']})")
     return a
 
 
@@ -175,4 +186,7 @@ def markdown(ind: dict[str, Any], al: list[str]) -> str:
         linhas += ["| Fonte | Vagas (janela) | Com competência | Competências/vaga |", "|---|---|---|---|"]
         linhas += [f"| {x['fonte']} | {x['vagas']} | {x['com_competencia_pct']}% | {x['competencias_por_vaga']} |"
                    for x in ind["extracao_por_fonte"]]
+    if ind.get("qualidade_fontes") or ind.get("formato_fontes"):
+        from . import qualidade_fontes as qf
+        linhas += ["", qf.markdown(ind.get("qualidade_fontes") or [], ind.get("formato_fontes") or [])]
     return "\n".join(linhas)

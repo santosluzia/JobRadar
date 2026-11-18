@@ -23,6 +23,8 @@ BASE = "https://api.adzuna.com/v1/api/jobs/{pais}/search/{pagina}"
 
 class AdzunaCollector(Collector):
     name = "adzuna"
+    CAMPOS_ESSENCIAIS = ("id", "title", "redirect_url", "created", "description", "company.display_name",
+                         "location.display_name", "location.area[]")
     MAX_ERROS_SEGUIDOS = 3
 
     def __init__(self, cfg: dict[str, Any], app_id: str, app_key: str, client: httpx.Client | None = None):

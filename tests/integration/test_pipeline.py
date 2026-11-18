@@ -313,3 +313,16 @@ def test_ashby_entra_no_pipeline_e_encerra_vaga_que_sai_do_quadro(settings):
     assert jobs.loc["u2", "pais_iso"] == "PT" and jobs.loc["u2", "empresa"] == "Acme"
     br = Lake(settings.lake).read("meta/board_runs")
     assert set(br["source"]) == {"ashby"} and br["completo"].all()
+
+
+def test_pipeline_assina_formato_e_aponta_mudanca_grave(settings, fake):
+    from jobradar.analytics import qualidade_fontes as qf
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r1", agora=AGORA)
+    tab = Lake(settings.lake).read(qf.TABELA)
+    assert set(tab["source"]) == {"gupy", "adzuna", "greenhouse"} and rep.formatos_alterados == []
+    for v in fake.gupy:            # a Gupy renomeia o título da vaga
+        v["title"] = v.pop("name")
+    rep = pipeline.run(settings, fake.collectors(settings), run_id="r2", agora=AGORA + timedelta(hours=6))
+    assert rep.formatos_alterados == ["gupy"]
+    ult = Lake(settings.lake).read(qf.TABELA).query("run_id == 'r2' and source == 'gupy'").iloc[0]
+    assert ult["grave"] and "name" in ult["mudancas"]

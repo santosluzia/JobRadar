@@ -32,6 +32,7 @@ def descricao(r: dict[str, Any]) -> str | None:
 
 class LeverCollector(Collector):
     name = "lever"
+    CAMPOS_ESSENCIAIS = ("id", "text", "hostedUrl", "descriptionPlain", "categories.location", "createdAt", "country")
     URL = "https://api.lever.co/v0/postings/{empresa}"
     MODALIDADE = {"remote": "remoto", "hybrid": "hibrido", "onsite": "presencial"}
 
