@@ -36,7 +36,9 @@ fontes:
     # passaram a responder 404; o portal migrou para a rota abaixo (mesmo formato data/pagination).
     urls:
       - https://portal.gupy.io/api/job-search/jobs
-    limite_por_termo: 100
+    # Páginas de 100. Em 2026-11-18, "analista de dados" tinha 191 vagas abertas e as 91 além da 1ª página
+    # nunca entravam; 300 cobre todos os termos com folga (custo: +1 a 2 requisições por execução).
+    limite_por_termo: 300
     pausa_segundos: 1.0
   adzuna:
     ativo: true                # só roda com ADZUNA_APP_ID e ADZUNA_APP_KEY
@@ -44,6 +46,13 @@ fontes:
     resultados_por_pagina: 50
     max_dias: 30
     pausa_segundos: 1.0
+    # Termos buscados só no TÍTULO (title_only); os demais, como expressão em título + descrição
+    # (what_phrase). Sondagem de 2026-11-18, % das 50 vagas mais recentes com família de dados no título:
+    # "banco de dados" 6% pela expressão × 62% pelo título; "sql server" 16% × 50%; "integracao de dados"
+    # 12% × 67%. Nomes de cargo ("analista de dados", "data engineer", "dba") ficam com a expressão (82–91%).
+    termos_so_no_titulo: [engenharia de dados, desenvolvedor de dados, governanca de dados, qualidade de dados,
+                          data quality, integracao de dados, etl, big data, databricks, banco de dados,
+                          administrador de dados, pl/sql, sql server]
   greenhouse:
     ativo: true                # API pública documentada, por empresa
     # As empresas vêm do catálogo config/empresas.yaml (ats: greenhouse, status: ativa).

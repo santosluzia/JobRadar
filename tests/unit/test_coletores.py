@@ -183,3 +183,63 @@ def test_lever_com_resposta_fora_do_formato_registra_erro_do_quadro():
     v.pause = 0
     r = v.collect([])
     assert r.records == [] and not r.por_quadro["y"]["ok"] and "formato mudou" in r.errors[0]
+
+
+# ---------------------------------------------------------------- correções de recall (2026-11-18)
+def test_gupy_pagina_ate_a_pagina_incompleta_mesmo_com_total_errado():
+    # A Gupy informa total=100 com limit=100 mesmo quando há 191 vagas: o total não pode decidir o fim.
+    vagas = [{"id": i} for i in range(191)]
+    pedidos = []
+
+    def h(req):
+        off, lim = int(req.url.params["offset"]), int(req.url.params["limit"])
+        pedidos.append(off)
+        return httpx.Response(200, json={"data": vagas[off:off + lim], "pagination": {"total": 100}})
+    c = GupyCollector({"urls": ["https://portal.gupy.io/api/job-search/jobs"], "limite_por_termo": 300},
+                      client=httpx.Client(transport=httpx.MockTransport(h)))
+    c.pause = 0
+    r = c.collect(["analista de dados"])
+    assert len(r.records) == 191 and pedidos == [0, 100]
+    c = GupyCollector({"urls": ["https://portal.gupy.io/api/job-search/jobs"], "limite_por_termo": 100},
+                      client=httpx.Client(transport=httpx.MockTransport(h)))
+    c.pause = 0
+    assert len(c.collect(["analista de dados"]).records) == 100          # o limite configurado continua valendo
+
+
+def _adzuna(falhas=(), so_titulo=()):
+    pedidos = []
+
+    def h(req):
+        termo = req.url.params.get("what_phrase") or req.url.params.get("title_only")
+        pedidos.append(("title_only" if "title_only" in req.url.params else "what_phrase", termo))
+        if termo in falhas:
+            return httpx.Response(503, json={})
+        return httpx.Response(200, json={"results": [{"id": f"{termo}-1", "title": termo}], "count": 1})
+    c = AdzunaCollector({"termos_so_no_titulo": list(so_titulo)}, "i", "k",
+                        client=httpx.Client(transport=httpx.MockTransport(h)))
+    c.pause = 0
+    return c, pedidos
+
+
+def test_adzuna_erro_num_termo_nao_interrompe_os_seguintes(monkeypatch):
+    monkeypatch.setattr("jobradar.collectors.base.time.sleep", lambda s: None)
+    c, _ = _adzuna(falhas={"b"})
+    r = c.collect(["a", "b", "c"])
+    assert [x["id"] for x in r.records] == ["a-1", "c-1"]
+    assert r.params["termos_com_erro"] == ["b"] and not r.ok and r.errors[0].startswith("b: ")
+
+
+def test_adzuna_para_depois_de_tres_termos_seguidos_com_erro(monkeypatch):
+    monkeypatch.setattr("jobradar.collectors.base.time.sleep", lambda s: None)
+    c, pedidos = _adzuna(falhas={"b", "c", "d"})
+    r = c.collect(["a", "b", "c", "d", "e", "f"])
+    assert [x["id"] for x in r.records] == ["a-1"] and r.params["termos_com_erro"] == ["b", "c", "d"]
+    assert "2 termos não consultados" in r.errors[-1] and {t for _, t in pedidos} == {"a", "b", "c", "d"}
+
+
+def test_adzuna_busca_so_no_titulo_os_termos_configurados():
+    c, pedidos = _adzuna(so_titulo=["Banco de Dados", "sql server"])
+    r = c.collect(["analista de dados", "banco de dados", "sql server"])
+    assert pedidos == [("what_phrase", "analista de dados"), ("title_only", "banco de dados"),
+                       ("title_only", "sql server")]
+    assert r.params["termos_so_no_titulo"] == ["banco de dados", "sql server"]

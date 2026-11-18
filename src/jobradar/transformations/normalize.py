@@ -31,6 +31,8 @@ MODALIDADE_TEXTO = [
 # Marcadores de gênero do título ("Engenheiro(a)", "Desenvolvedor/a") saem antes das regras abaixo.
 GENERO = r"\((a|o|as|os|e|es|o/a|a/o)\)|/(a|o)\b"
 _BANCO = r"banco[s]? (de )?dados"
+_FERRAMENTA_BI = r"power ?bi|tableau|qlik( sense)?|looker"
+_CARGO_BI = r"(analista|especialista|consultor[a]?|engenheir[oa]|analyst|specialist|consultant|engineer)"
 # Produtos Oracle que não são o banco: ERP, aplicações e middleware.
 _ORACLE_APLICACOES = (r"ebs|e-business|erp|cloud|fusion|hcm|financ|otm|retail|netsuite|apex|bpm|soa|oic|osb|"
                       r"weblogic|forms|integration|jde|siebel|peoplesoft")
@@ -50,9 +52,16 @@ FAMILIA_TITULO = [
     # Desenvolvimento de dados, incluindo PL/SQL, SQL e banco de dados ("Desenvolvedor Oracle PL/SQL", "SQL Developer").
     (Familia.desenvolvimento_dados, rf"desenvolvedor[a]? (de )?(dados|etl|bi)\b|(etl|bi|data) developer|"
                                     rf"(desenvolvedor[a]?|programador[a]?|analista) (de |em )?(pl ?/ ?sql|{_ORACLE}|sql( server)?|{_BANCO}|etl)\b|"
-                                    rf"(pl ?/ ?sql|database|sql|{_ORACLE}( sql)?) developer|engenheir[oa]s? de bi\b|\bbi engineer"),
+                                    rf"(pl ?/ ?sql|database|sql|{_ORACLE}( sql)?) developer|engenheir[oa]s? de bi\b|\bbi engineer|"
+                                    rf"desenvolvedor[a]? (de )?(visualizacao de )?({_FERRAMENTA_BI}|bi)\b|({_FERRAMENTA_BI}) developer"),
     (Familia.governanca_qualidade, r"governanca( e [a-z ]+?)? de dados|data governance|qualidade de dados|data quality|data steward|integracao de dados|\bmdm\b"),
-    (Familia.analise_dados, r"analista (de )?(dados|bi)\b|data analyst|business intelligence|analista de business intelligence"),
+    (Familia.analise_dados, r"analista (de )?(dados|bi)\b|data analyst|business intelligence|analista de business intelligence|"
+                            # BI e visualização (2.1.2): "Analista de Power BI", "Especialista em BI", "Consultor Qlik
+                            # Sense", "Data Visualization Specialist". O cargo vem antes da ferramenta (até 2 palavras
+                            # entre eles), para "Assistente administrativo com Power BI" não entrar.
+                            rf"{_CARGO_BI}( (de|em|of))?( [a-z]+){{0,2}}? ({_FERRAMENTA_BI}|bi|business intelligence)\b|"
+                            rf"\b({_FERRAMENTA_BI}|bi) (analyst|specialist|engineer|consultant|analista|especialista|consultor[a]?)\b|"
+                            r"data visuali[sz]ation|dataviz|visualizacao de dados"),
 ]
 SKILLS_NUCLEO_ENG = {"spark", "airflow", "etl", "databricks", "dbt", "data_lake", "data_warehouse",
                      "kafka", "data_factory", "snowflake"}
