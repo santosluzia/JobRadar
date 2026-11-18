@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..models import RawJob
-from . import geografia, normalize
+from . import classificacao, geografia, normalize
 from .skills import SkillMatch, Taxonomy
 from .text import normalizar, sha1, url_canonica
 
@@ -41,6 +41,7 @@ def canonizar(raw: RawJob, tax: Taxonomy, agora: datetime, run_id: str) -> Canon
     familia, o_fam = normalize.familia(raw.title, ids)
     loc = geografia.localizar(raw.country, raw.state, raw.city, raw.location_raw)
     uf = loc.uf
+    cls = classificacao.classificar(raw.title, raw.description, familia.value, tax, loc.pais_iso)
     canon = url_canonica(raw.url)
     job_id = sha1(raw.source, raw.source_job_id) if raw.source_job_id else sha1(raw.source, canon)
 
@@ -68,6 +69,7 @@ def canonizar(raw: RawJob, tax: Taxonomy, agora: datetime, run_id: str) -> Canon
             "uf": "fonte" if raw.state and uf else ("local_raw" if uf else "nao_informada"),
             "pais": loc.origem_pais,
             "publicada_em": "fonte" if raw.published_at else "nao_informada",
+            **cls.origem,
         }),
         "publicada_em": raw.published_at,
         "prazo_em": raw.deadline_at,
@@ -83,5 +85,6 @@ def canonizar(raw: RawJob, tax: Taxonomy, agora: datetime, run_id: str) -> Canon
         "geografia_versao": geografia.GEOGRAFIA_VERSAO,
         "atualizado_em": agora,
         "taxonomia_versao": tax.versao,
+        **cls.colunas(),
     }
     return CanonicalJob(row=row, skills=skills)

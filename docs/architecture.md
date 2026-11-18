@@ -261,6 +261,9 @@ Detalhes em docs/adr/0008-governanca-seguranca.md, docs/privacidade.md e docs/ra
   (disponibilidade, válidos, relevância, descrição completa, campos e extração, com n e período).
   `collectors/assinatura.py` assina o formato dos registros brutos a cada execução (`meta/schema_assinaturas`)
   e alerta quando um campo essencial do coletor (`CAMPOS_ESSENCIAIS`) some, cai ou troca de tipo.
+- **Subfamília e idiomas** (ADR 0014): `transformations/classificacao.py` dá a subfamília (pelo título, dentro
+  da família), o idioma da vaga e os idiomas exigidos com nível e importância. Versão própria
+  (`classificacao_versao`) e migração incremental do histórico a cada execução, como a geografia.
 
 ## Retenção
 

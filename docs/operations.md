@@ -237,6 +237,17 @@ jobradar mensal --forcar                           # grava o retrato do mês e e
   coletor usa. Abra a bronze mais recente da fonte (`bronze/source=X/`), veja o campo novo e ajuste o
   `to_raw_job` e o `CAMPOS_ESSENCIAIS` do coletor. O alerta some sozinho depois de 24 horas, porque o
   formato novo vira a referência.
+- **Subfamília e idiomas** (ADR 0014):
+
+  ```bash
+  jobradar classificacao --dias 30                         # subfamílias, idioma das vagas, % que exige inglês
+  jobradar avaliacao amostrar-classificacao --lote teste   # sorteia vagas para rotular (conjunto-ouro privado)
+  jobradar avaliacao medir-classificacao                   # F1 de família, acurácia de idioma (só revisados)
+  ```
+
+  Mudou uma regra de subfamília ou de idioma? Suba `CLASSIFICACAO_VERSAO` em
+  `transformations/classificacao.py`: a próxima execução reclassifica o histórico (~25 s para 11 mil vagas).
+  Mudou uma regra de família? Suba a versão da taxonomia: o `reextrair` refaz a família e a subfamília.
 - **Atualizar uma action fixada por SHA:**
 
   ```bash

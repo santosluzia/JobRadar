@@ -22,6 +22,9 @@ TABLES: dict[str, pa.Schema] = {
         # Geografia (ADR 0010; nulo = gravada antes, recalculada na próxima execução): país ISO alfa-2,
         # região (UF no Brasil, estado/província nos demais), cidade normalizada e versão das regras
         ("pais_iso", S), ("regiao", S), ("cidade_norm", S), ("geografia_versao", S),
+        # Classificação complementar (ADR 0014; nulo = gravada antes, preenchida na próxima execução):
+        # subfamília, idioma da vaga (pt|en|es|indeterminado), idiomas exigidos (JSON) e versão das regras
+        ("subfamilia", S), ("idioma_vaga", S), ("idiomas_exigidos", S), ("classificacao_versao", S),
     ]),
     "silver/job_skills": pa.schema([
         ("job_id", S), ("skill_id", S), ("importancia", S), ("termo", S), ("run_id", S),

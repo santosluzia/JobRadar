@@ -33,8 +33,12 @@ erDiagram
 | geografia_versao | string | Versão das regras de geografia da linha. Nula ou diferente da atual = recalculada na próxima execução |
 | modalidade | enum | remoto · hibrido · presencial · nao_informada |
 | senioridade | enum | estagio · junior · pleno · senior · lideranca · nao_informada |
-| familia | enum | engenharia_dados · analytics_engineering · desenvolvimento_dados · analise_dados · governanca_qualidade · administracao_dados · outra. Inferida pelo título (marcadores de gênero como "(a)" ignorados); título genérico com descrição de engenharia vira engenharia_dados |
-| origem_campos | json | De onde veio cada campo inferido: `fonte`, `titulo`, `descricao`, `local_raw` ou `nao_informada` (país: também `cidade`, `uf` ou `multiplos`) |
+| familia | enum | engenharia_dados · analytics_engineering · desenvolvimento_dados · analise_dados · governanca_qualidade · administracao_dados · outra. Inferida pelo título em português, inglês ou espanhol (marcadores de gênero como "(a)" ignorados); título genérico com descrição de engenharia vira engenharia_dados |
+| subfamilia | string | Recorte dentro da família, pelo título (ADR 0014). Em `outra`, marca cargos adjacentes: ciencia_dados · machine_learning · produto_dados · lideranca_dados · fora_de_dados. Tabela completa no ADR |
+| idioma_vaga | enum | pt · en · es · indeterminado: idioma em que a vaga está escrita (palavras funcionais da descrição; sem descrição, do título) |
+| idiomas_exigidos | json | `[{idioma, nivel, importancia, origem, evidencia}]`. Nível: fluente · avancado · intermediario · basico · nao_informado. Importância: requisito · desejavel. Origem: `descricao`, `titulo` ou `idioma_da_vaga` (vaga escrita em idioma que não é o do país, sem menção explícita). Lista vazia = nenhum idioma exigido |
+| classificacao_versao | string | Versão das regras de subfamília e idioma da linha. Nula ou diferente da atual = recalculada na próxima execução |
+| origem_campos | json | De onde veio cada campo inferido: `fonte`, `titulo`, `descricao`, `local_raw`, `familia` (subfamília geral da família) ou `nao_informada` (país: também `cidade`, `uf` ou `multiplos`) |
 | publicada_em | timestamp | Data de publicação informada pela fonte (pode ser nula) |
 | prazo_em | timestamp | Prazo de inscrição, quando a fonte informa |
 | primeira_observacao / ultima_observacao | timestamp | Primeira e última vez que o pipeline viu a vaga |
