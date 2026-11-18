@@ -32,6 +32,7 @@ def _id(job: dict[str, Any]) -> str | None:
 
 class AshbyCollector(Collector):
     name = "ashby"
+    CAMPOS_ESSENCIAIS = ("id", "title", "jobUrl", "descriptionPlain", "location", "publishedAt")
     URL = "https://api.ashbyhq.com/posting-api/job-board/{board}"
     MODALIDADE = {"Remote": "remoto", "Hybrid": "hibrido", "OnSite": "presencial"}
 

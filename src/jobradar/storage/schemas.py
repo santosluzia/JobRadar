@@ -85,6 +85,13 @@ TABLES: dict[str, pa.Schema] = {
         ("vagas_listadas", pa.int64()), ("vagas_mantidas", pa.int64()), ("requisicoes", pa.int64()),
         ("retentativas", pa.int64()), ("duracao_s", pa.float64()), ("erro", S), ("finalizada_em", TS),
     ]),
+    # Assinatura do formato dos registros brutos por fonte e execução (docs/adr/0013). Só nomes de campo,
+    # tipos e presença, nunca valores. `campos` = JSON {caminho: {tipos, presenca_pct}}; `essenciais` =
+    # presença % dos campos que o coletor usa; `mudancas` = diferença para a assinatura anterior comparável.
+    "meta/schema_assinaturas": pa.schema([
+        ("run_id", S), ("source", S), ("em", TS), ("registros", pa.int64()), ("hash", S), ("campos", S),
+        ("essenciais", S), ("comparada", pa.bool_()), ("mudou", pa.bool_()), ("grave", pa.bool_()), ("mudancas", S),
+    ]),
     # Verificação de quadros na curadoria de empresas (docs/adr/0012): uma linha por verificação manual
     # (`jobradar empresas detectar|verificar`). Só dados públicos e operacionais. `vagas_dados` = passaram
     # no filtro de título da coleta; `vagas_brasil`/`vagas_alvo` contam entre elas (alvo = BR, PT e

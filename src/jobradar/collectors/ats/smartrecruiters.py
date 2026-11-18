@@ -40,6 +40,8 @@ def descricao(detalhe: dict[str, Any] | None) -> str | None:
 
 class SmartRecruitersCollector(Collector):
     name = "smartrecruiters"
+    CAMPOS_ESSENCIAIS = ("id", "name", "releasedDate", "location.country", "_detalhe.postingUrl",
+                         "_detalhe.jobAd.sections.jobDescription.text")
     URL = "https://api.smartrecruiters.com/v1/companies/{board}/postings"
     PAGINA = 100
 

@@ -16,6 +16,7 @@ from .comum import aplicar_filtro, medindo, registrar_quadro
 
 class GreenhouseCollector(Collector):
     name = "greenhouse"
+    CAMPOS_ESSENCIAIS = ("id", "title", "absolute_url", "content", "company_name", "location.name", "first_published")
     URL = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs"
 
     def collect(self, termos: list[str]) -> CollectResult:

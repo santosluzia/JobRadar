@@ -16,6 +16,11 @@ __all__ = ["Collector", "CollectResult", "build_collectors", "GupyCollector", "A
            "GreenhouseCollector", "LeverCollector", "AshbyCollector", "SmartRecruitersCollector"]
 
 
+def essenciais_por_fonte() -> dict[str, tuple[str, ...]]:
+    """Campos que cada coletor usa do registro bruto (detecção de mudança de formato, ADR 0013)."""
+    return {c.name: c.CAMPOS_ESSENCIAIS for c in (GupyCollector, AdzunaCollector, *COLETORES_ATS.values())}
+
+
 def build_collectors(s: Settings) -> list[Collector]:
     coletores: list[Collector] = []
     if s.fonte("gupy").get("ativo"):

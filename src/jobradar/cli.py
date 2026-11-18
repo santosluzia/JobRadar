@@ -4,6 +4,7 @@
     jobradar publish --out DIR       gera, VALIDA e grava os JSON públicos v1
     jobradar notify [--dry-run]      e-mail com vagas ainda não notificadas
     jobradar status                  últimas execuções e saúde das fontes
+    jobradar qualidade [fontes|formato|reconstruir-formato]   nota por fonte e mudanças de formato
     jobradar empresas listar         catálogo de empresas (config/empresas.yaml) e última coleta de cada uma
     jobradar empresas detectar URL   descobre o ATS/quadro de uma página de carreiras e verifica o quadro
                                      (--adicionar --nome --pais --segmento: põe na fila como candidata)
@@ -625,6 +626,42 @@ def cmd_saude(a, s) -> int:
     return 0
 
 
+def cmd_qualidade(a, s) -> int:
+    """Qualidade e nota por fonte; formato das respostas (ADR 0013). Só agregados operacionais."""
+    from .analytics import qualidade_fontes as qf
+    from .collectors import essenciais_por_fonte
+    from .collectors.assinatura import resumo
+    lake = Lake(s.lake)
+    if a.acao == "reconstruir-formato":
+        n = qf.reconstruir(lake, essenciais_por_fonte(), dias=a.dias)
+        print(f"{n} assinaturas refeitas a partir da bronze" + (f" (últimos {a.dias} dias)" if a.dias else ""))
+        return 0
+    if a.acao == "formato":
+        tab = lake.read(qf.TABELA)
+        if a.fonte:
+            tab = tab[tab["source"] == a.fonte]
+        tab = tab[tab["mudou"].fillna(False).astype(bool)].sort_values("em").tail(a.n)
+        sit = qf.situacao_schema(lake)
+        print(qf.markdown([], sit) if sit else "nenhuma assinatura registrada (rode jobradar qualidade reconstruir-formato)")
+        if not tab.empty:
+            print("\nmudanças registradas:")
+            for _, r in tab.iterrows():
+                print(f"  {pd_data(r['em'])} {r['source']}{' ⚠️ GRAVE' if r['grave'] else ''}: "
+                      f"{resumo(json.loads(r['mudancas'] or '{}'))}")
+        return 0
+    q = qf.por_fonte(lake, dias=a.dias or 30)
+    if a.json:
+        print(json.dumps(q, ensure_ascii=False, indent=2, default=str))
+    else:
+        print(qf.markdown(q, qf.situacao_schema(lake)))
+    return 0
+
+
+def pd_data(v) -> str:
+    import pandas as pd
+    return pd.Timestamp(v).strftime("%Y-%m-%d %H:%M")
+
+
 def cmd_privacidade(a, s) -> int:
     from . import retencao
     if a.acao == "limpar":
@@ -869,6 +906,11 @@ def main(argv: list[str] | None = None) -> None:
     cv.add_argument("--salvar", action="store_true", help="diagnostico: guarda no histórico local")
     cv.add_argument("-n", type=int, default=8)
     cv.set_defaults(f=cmd_curriculo)
+    ql = sub.add_parser("qualidade", help="qualidade e nota por fonte; mudanças de formato das respostas")
+    ql.add_argument("acao", nargs="?", default="fontes", choices=["fontes", "formato", "reconstruir-formato"])
+    ql.add_argument("--dias", type=int, help="fontes: janela (padrão 30); reconstruir-formato: só os últimos N dias")
+    ql.add_argument("--fonte"); ql.add_argument("-n", type=int, default=20); ql.add_argument("--json", action="store_true")
+    ql.set_defaults(f=cmd_qualidade)
     sd = sub.add_parser("saude", help="indicadores e alertas da operação (só agregados)")
     sd.add_argument("--json", action="store_true"); sd.add_argument("--resumo-github", action="store_true")
     sd.set_defaults(f=cmd_saude)

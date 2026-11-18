@@ -225,6 +225,18 @@ jobradar mensal --forcar                           # grava o retrato do mês e e
 - **Saúde da operação:** `jobradar saude` (também no resumo do Actions, na Visão geral e no rodapé do
   Radar quando há alerta). Limites em `config/sources.yaml → saude`; detalhes em
   [docs/rastreabilidade.md](rastreabilidade.md).
+- **Qualidade por fonte e formato das respostas** (ADR 0013):
+
+  ```bash
+  jobradar qualidade                      # nota e indicadores por fonte (30 dias; --dias N, --json)
+  jobradar qualidade formato              # assinatura atual e mudanças registradas (--fonte gupy)
+  jobradar qualidade reconstruir-formato  # refaz o histórico de assinaturas com a bronze (90 dias)
+  ```
+
+  Alerta "formato da fonte X mudou (essenciais em queda: …)": a fonte trocou ou tirou um campo que o
+  coletor usa. Abra a bronze mais recente da fonte (`bronze/source=X/`), veja o campo novo e ajuste o
+  `to_raw_job` e o `CAMPOS_ESSENCIAIS` do coletor. O alerta some sozinho depois de 24 horas, porque o
+  formato novo vira a referência.
 - **Atualizar uma action fixada por SHA:**
 
   ```bash
@@ -250,7 +262,8 @@ Candidaturas e progresso de estudos registrados no painel são gravados em `jobr
 | Sintoma | Onde olhar |
 |---|---|
 | Fonte com ❌ | Resumo da execução e `meta/source_runs.erros` |
-| Muitos inválidos | `silver/quality_issues` (o formato da fonte pode ter mudado) |
+| Muitos inválidos | `silver/quality_issues` e `jobradar qualidade formato` (o formato da fonte pode ter mudado) |
+| Fonte trazendo pouca vaga útil | `jobradar qualidade`: relevância, descrição completa e campos por fonte |
 | Site sem atualizar | Passo "Gerar e validar contrato" (erro de schema) e data em `manifest.json` |
 | E-mail não chegou | Passo "Enviar e-mail". Nada é registrado em caso de falha, e as vagas voltam na próxima execução |
 | Vagas repetidas no e-mail | Não deve ocorrer; verifique se o passo "Persistir registros da execução" (ou "Persistir" do workflow privado) falhou |

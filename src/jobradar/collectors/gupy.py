@@ -20,6 +20,7 @@ MODALIDADE = {"remote": "remoto", "hybrid": "hibrido", "on-site": "presencial"}
 
 class GupyCollector(Collector):
     name = "gupy"
+    CAMPOS_ESSENCIAIS = ("id", "name", "jobUrl", "careerPageName", "publishedDate", "description", "city")
 
     def _termo(self, url: str, termo: str, result: CollectResult) -> list[dict[str, Any]]:
         limite = int(self.cfg.get("limite_por_termo", 100))

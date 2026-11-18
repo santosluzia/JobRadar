@@ -62,6 +62,7 @@ class RunReport:
     requisitos_alterados: int = 0
     encerradas_fora_do_quadro: int = 0   # saíram do quadro da empresa no ATS nesta execução
     chaves_geografia_alteradas: int = 0  # vagas do histórico com chave de dedup refeita pela geografia (ADR 0010)
+    formatos_alterados: list[str] = field(default_factory=list)   # fontes com mudança GRAVE de formato (ADR 0013)
     meses_recalculados: list[str] = field(default_factory=list)
     vagas_pontuadas: int = 0
     vagas_enriquecidas: int = 0          # passaram pela camada semântica local (se ativa)
@@ -94,6 +95,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
     problemas: list[dict] = []
     quadros: dict[str, dict[str, list[str]]] = {}   # fonte → quadro lido por inteiro → ids listados
     quadros_run: list[dict] = []                     # métricas por quadro (empresa) → meta/board_runs
+    coletas: list[tuple[str, list[dict], tuple[str, ...]]] = []   # → assinatura de formato (ADR 0013)
     for coletor in collectors:
         ts = time.monotonic()
         try:
@@ -117,6 +119,7 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
             "erro": m.get("erro")} for q, m in res.por_quadro.items()]
         if res.quadros:
             quadros[coletor.name] = res.quadros
+        coletas.append((coletor.name, res.records, getattr(coletor, "CAMPOS_ESSENCIAIS", ())))
         m = SourceMetrics(coletor.name, ok=res.ok, coletados=len(res.records),
                           duplicatas_fonte=res.duplicates_in_source, requisicoes=res.requests,
                           retentativas=res.retries, erros=res.errors)
@@ -137,6 +140,8 @@ def run(s: Settings, collectors: list[Collector], run_id: str | None = None,
         report.fontes.append(m)
         log.info("%s: %d coletados, %d válidos, %d inválidos, erros=%s",
                  m.source, m.coletados, m.validos, m.invalidos, m.erros)
+
+    report.formatos_alterados = _assinar_formatos(lake, run_id, agora, coletas)
 
     fontes_ok = [f for f in report.fontes if f.ok]
     if not fontes_ok:
@@ -332,6 +337,28 @@ def pontuar(s: Settings, agora: datetime | None = None) -> int:
 
 
 # ---------------------------------------------------------------- helpers
+def _assinar_formatos(lake: Lake, run_id: str, agora: datetime,
+                      coletas: list[tuple[str, list[dict], tuple[str, ...]]]) -> list[str]:
+    """Assinatura do formato de cada fonte (meta/schema_assinaturas). Sem histórico, a referência vem da
+    bronze dos últimos 14 dias. Nunca derruba a execução: é monitoramento."""
+    from .analytics import qualidade_fontes as qf
+    from .collectors import essenciais_por_fonte
+    from .collectors.assinatura import resumo
+    try:
+        if lake.read(qf.TABELA).empty:
+            qf.reconstruir(lake, essenciais_por_fonte(), dias=14, agora=agora, excluir_run=run_id)
+        graves = []
+        for linha in qf.registrar_execucao(lake, run_id, agora, coletas):
+            if linha["grave"]:
+                graves.append(linha["source"])
+                log.warning("%s: formato da resposta mudou (%s)", linha["source"],
+                            resumo(json.loads(linha["mudancas"] or "{}")))
+        return graves
+    except Exception:   # defesa: monitoramento com bug não derruba a coleta
+        log.exception("assinatura de formato falhou")
+        return []
+
+
 def _problema(run_id, source, rec, campo, problema, detalhe, agora) -> dict:
     rid = rec.get("id") if isinstance(rec, dict) else None
     return {"run_id": run_id, "source": source, "source_job_id": str(rid) if rid is not None else None,
